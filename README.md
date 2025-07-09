@@ -4,7 +4,7 @@
 
 ## How to build 
 
-## How to build 
+## How to use 
 
 ## Contributors 
 
