@@ -10,7 +10,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
+
 
 #include "driver/gptimer_types.h"
 
@@ -24,7 +24,7 @@ typedef struct sf_device_sts_t
             unsigned int device_init                : 1; // device initialized
             unsigned int device_gpio_pin_0_sts      : 1; // device GPIO pin status
             unsigned int device_wifi_sts            : 1; // device wifi status
-            unsigned int reserved: 31;
+            unsigned int reserved: 29;
         };
         unsigned int dev_cfg;
     };
@@ -44,22 +44,31 @@ static bool check_device_sts()
 
 static bool IRAM_ATTR timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)
 {
+    BaseType_t high_task_awoken = pdFALSE;
+
+    QueueHandle_t queue = (QueueHandle_t)user_data;
+
     device_sts.device_gpio_pin_0_sts = !device_sts.device_gpio_pin_0_sts; // toggle GPIO status
 
     sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, device_sts.device_gpio_pin_0_sts); // set GPIO level
     
-
+    int gpio_val = device_sts.device_gpio_pin_0_sts; // get GPIO value
+    /* Now just send the event data back to the main program task */
+    
+    if (queue != NULL) 
+    {
+        xQueueSendFromISR(queue, &gpio_val, &high_task_awoken);
+    }
+    
     return pdTRUE; 
 }
 
-
 sf_err_t init_device(sf_device_cfg_t dev_cfg)
 {
-
     if (sf_gpio_init())
         goto FAIL;
 
-    if(sf_timer_init(&timer_on_alarm_cb, SF_TIMER_RESOLUTION_MICRO_S))
+    if(sf_timer_init(&timer_on_alarm_cb, sizeof(uint32_t), SF_TIMER_RESOLUTION_MICRO_S))
         goto FAIL;
 
     //Initialize NVS
@@ -86,29 +95,28 @@ FAIL:
 
 sf_err_t device_start ()
 {
-
-
     // GPIO and timer 
-/*
-    int gpio_val = 0;
+    printf("-------- queue created --------\n");
+    uint32_t gpio_val = 0;
+    uint32_t* gpio_val_ptr = &gpio_val;
 
-    sf_timer_start(SF_TIMER_RESOLUTION_MICRO_S); 
+    sf_timer_start(SF_TIMER_RESOLUTION_MICRO_S*2); 
 
-    int counter = 10;
-    while(counter){
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        gpio_val = sf_gpio_get_level(CONFIG_GPIO_OUTPUT_0);
+    while (1) {
+        
+        
+        sf_timer_get_user_data(gpio_val_ptr, portMAX_DELAY); // wait for timer event
 
-        ESP_LOGI(TAG, "Device is running GPIO level: %d and not: %d", gpio_val, !gpio_val);
-
-        counter--;
+        /* Print the timer values passed by event */
+        printf("-------- GPIO VALUE --------> %lu\n", gpio_val);
     }
 
     sf_timer_stop();
-*/
+
     // time 
    // settimeofday();
-    
+
+/*
    time_t t;
 	time_t t_new;
 	double difference = 0.0;
@@ -129,6 +137,7 @@ sf_err_t device_start ()
         difference = difftime(t_new, t);
         printf ("Difference is %.0f seconds\n", difference);
 	}
+*/
 
     return SF_OK;
 }

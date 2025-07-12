@@ -127,7 +127,7 @@ sf_err_t sf_wifi_stop(void)
     esp_err_t status = ESP_FAIL; 
 
     status = esp_wifi_stop();
-    SF_CHECK_ERR_RETURN(ESP_LOGI, TAG, status, "Stop wifi status: %d", status);
+    SF_CHECK_ERR_RETURN_FAIL(ESP_LOGI, TAG, status, "Stop wifi status: %d", status);
 
     ESP_LOGI(TAG, "wifi_stopped.");
     return SF_OK;
