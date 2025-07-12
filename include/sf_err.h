@@ -27,6 +27,23 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
     }
 
 /**
+ * @brief Macro to check an error condition and jump to a label if the condition is met.
+ *
+ * @param LOG_TYPE Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG Tag for the log message.
+ * @param val The val to check against NULL.
+ * @param goto_label The label to jump to if the status is not ESP_OK.
+ * @param msg The log message format string.
+ * @param ... Additional arguments for the log message.
+ */
+#define SF_CHECK_NULL_GOTO(LOG_TYPE, TAG, val, goto_label, msg, ...) \
+    if ((val) == NULL) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        goto goto_label; \
+    }
+
+
+/**
  * @brief Macro to check an error condition and return the status if the condition is met.
  *
  * @param LOG_TYPE Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
@@ -35,10 +52,30 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
  * @param msg The log message format string.
  * @param ... Additional arguments for the log message.
  */
-#define SF_CHECK_ERR_RETURN(LOG_TYPE, TAG, status, msg, ...) \
+#define SF_CHECK_ERR_RETURN_FAIL(LOG_TYPE, TAG, status, msg, ...) \
     LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
     if ((status) != ESP_OK) { \
         return SF_FAIL; \
+    }
+
+
+
+/**
+ * @brief Macro to check if a status matches an expected value and return failure if so.
+ *
+ * @param LOG_TYPE   Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG        Tag for the log message.
+ * @param status     The status to check against the expected value.
+ * @param expected   The value to compare against status.
+ * @param msg        The log message format string.
+ * @param ...        Additional arguments for the log message.
+ *
+ * If status equals expected, logs the message and returns SF_FAIL.
+ */
+#define SF_CHECK_EXPECTED_RETURN(LOG_TYPE, TAG, status, expected, msg, ...) \
+    if ((status) == expected) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        return;  \
     }
 
 /* Definitions for error constants. */
