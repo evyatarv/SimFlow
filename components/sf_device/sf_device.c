@@ -2,6 +2,7 @@
 #include "sf_gpio.h"
 #include "sf_timer.h"
 #include "sf_wifi.h"
+#include "sf_time.h"
 
 #include <sys/time.h>
 
@@ -82,6 +83,8 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
         goto FAIL;  
     device_sts.device_wifi_sts = 0x1; // device wifi initialized
 
+    if(sf_time_set_sntp_date())
+        goto FAIL;
 
     device_sts.device_init = 0x1; // device initialized
 
@@ -96,39 +99,38 @@ FAIL:
 sf_err_t device_start ()
 {
     // GPIO and timer 
-    printf("-------- queue created --------\n");
     uint32_t gpio_val = 0;
     uint32_t* gpio_val_ptr = &gpio_val;
 
-    sf_timer_start(SF_TIMER_RESOLUTION_MICRO_S*2); 
+    sf_timer_start(SF_TIMER_RESOLUTION_MICRO_S*1); 
 
-    while (1) {
+    int tick_times = 10;
+    while (tick_times) {
         
         
         sf_timer_get_user_data(gpio_val_ptr, portMAX_DELAY); // wait for timer event
 
         /* Print the timer values passed by event */
         printf("-------- GPIO VALUE --------> %lu\n", gpio_val);
-    }
 
+        tick_times--;
+    }
     sf_timer_stop();
 
     // time 
    // settimeofday();
+    time_t t;
+    time_t t_new;
+    double difference = 0.0;
 
-/*
-   time_t t;
-	time_t t_new;
-	double difference = 0.0;
+    time(&t);	
 
-	time(&t);	
+    printf("Time: %s", ctime(&t));
 
-	printf("Time: %s", ctime(&t));
-	
-	struct tm *ptm = localtime(&t);
+    struct tm *ptm = localtime(&t);
 
 
-	for(int i=0 ; i<365; i++)
+	for(int i=0 ; i<10; i++)
 	{
 		ptm->tm_mday++;
 
@@ -137,7 +139,6 @@ sf_err_t device_start ()
         difference = difftime(t_new, t);
         printf ("Difference is %.0f seconds\n", difference);
 	}
-*/
 
     return SF_OK;
 }
