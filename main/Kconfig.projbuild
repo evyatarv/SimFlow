@@ -1,4 +1,4 @@
-menu "SIM FLOW Configuration"
+menu "SIM FLOW WiFi Configuration"
 
     config SIM_FLOW_WIFI_SSID
         string "WiFi SSID"
@@ -23,4 +23,27 @@ menu "SIM FLOW Configuration"
         default 4
         help
             Max number of the STA connects to AP.
+endmenu
+
+menu "SIM FLOW Time Configuration"
+
+    config SIM_FLOW_SNTP_SERVER
+        string "SNTP Server"
+        default "pool.ntp.org"
+        help
+            SNTP server to use for time synchronization.
+
+    config SIM_FLOW_SNTP_RETRY_COUNT
+        int "SNTP Max retry count"
+        default 10
+        help
+            SNTP max retry count for time synchronization.
+
+
+    config SIM_FLOW_SNTP_TIMEOUT
+        int "SNTP Timeout"
+        default 2000
+        help
+            SNTP timeout in milliseconds for time synchronization.
+
 endmenu
