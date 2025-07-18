@@ -11,7 +11,7 @@ void app_main(void)
     sf_device_cfg_t dev_cfg = {0}; 
 
     init_device(dev_cfg);
-    ESP_LOGI(TAG, "************************ SIM FLOW INIT DONE STARTING DEVICE ************************");
+    ESP_LOGI(TAG, "************************ SIM FLOW INIT DONE ************************");
 
     device_start();
 }
