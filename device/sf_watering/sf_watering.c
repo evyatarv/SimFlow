@@ -1,8 +1,10 @@
 #include "sf_device.h"
 #include "sf_gpio.h"
-#include "sf_timer.h"
 #include "sf_wifi.h"
 #include "sf_time.h"
+#include "sf_watering_scheduler.h"
+#include "cron.h"
+
 
 #include <sys/time.h>
 
@@ -16,14 +18,13 @@
 #include "driver/gptimer_types.h"
 
 
-static const char* TAG = "SF_DEVICE";
+static const char* TAG = "SF_WATTERING";
 
 typedef struct sf_device_sts_t
 {
     union {
         struct {
             unsigned int device_init                : 1; // device initialized
-            unsigned int device_gpio_pin_0_sts      : 1; // device GPIO pin status
             unsigned int device_wifi_sts            : 1; // device wifi status
             unsigned int reserved: 29;
         };
@@ -31,45 +32,12 @@ typedef struct sf_device_sts_t
     };
 } sf_device_sts_t;
 
-static sf_device_sts_t device_sts = {0};
+sf_device_sts_t g_device_sts = {0};
 
-
-static bool check_device_sts()
-{
-    if (device_sts.device_init == 0x1) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-static bool IRAM_ATTR timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)
-{
-    BaseType_t high_task_awoken = pdFALSE;
-
-    QueueHandle_t queue = (QueueHandle_t)user_data;
-
-    device_sts.device_gpio_pin_0_sts = !device_sts.device_gpio_pin_0_sts; // toggle GPIO status
-
-    sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, device_sts.device_gpio_pin_0_sts); // set GPIO level
-    
-    int gpio_val = device_sts.device_gpio_pin_0_sts; // get GPIO value
-    /* Now just send the event data back to the main program task */
-    
-    if (queue != NULL) 
-    {
-        xQueueSendFromISR(queue, &gpio_val, &high_task_awoken);
-    }
-    
-    return pdTRUE; 
-}
 
 sf_err_t sf_watering_device_init()
 {
     if (sf_gpio_init())
-        goto FAIL;
-
-    if(sf_timer_init(&timer_on_alarm_cb, sizeof(uint32_t), SF_TIMER_RESOLUTION_MICRO_S))
         goto FAIL;
 
     //Initialize NVS
@@ -81,12 +49,12 @@ sf_err_t sf_watering_device_init()
 
     if (sf_wifi_init())
         goto FAIL;  
-    device_sts.device_wifi_sts = 0x1; // device wifi initialized
+    g_device_sts.device_wifi_sts = 0x1; // device wifi initialized
 
     if(sf_time_set_sntp_date())
         goto FAIL;
 
-    device_sts.device_init = 0x1; // device initialized
+    g_device_sts.device_init = 0x1; // device initialized
 
     return SF_OK; 
 
@@ -95,32 +63,10 @@ FAIL:
 }
 
 
-
 sf_err_t sf_watering_device_start ()
 {
     ESP_LOGI(TAG, "Starting watering device ...");
-    
-    // GPIO and timer 
-    uint32_t gpio_val = 0;
-    uint32_t* gpio_val_ptr = &gpio_val;
 
-    sf_timer_start(SF_TIMER_RESOLUTION_MICRO_S*1); 
-
-    int tick_times = 10;
-    while (tick_times) {
-        
-        
-        sf_timer_get_user_data(gpio_val_ptr, portMAX_DELAY); // wait for timer event
-
-        /* Print the timer values passed by event */
-        printf("-------- GPIO VALUE --------> %lu\n", gpio_val);
-
-        tick_times--;
-    }
-    sf_timer_stop();
-
-    // time 
-   // settimeofday();
     time_t t;
     time_t t_new;
     double difference = 0.0;
@@ -141,6 +87,14 @@ sf_err_t sf_watering_device_start ()
         difference = difftime(t_new, t);
         printf ("Difference is %.0f seconds\n", difference);
 	}
+
+    uint32_t pin = CONFIG_GPIO_OUTPUT_0; 
+
+    sf_watering_add_schdule("0 15 18 * * SUN", "0 16 18 * * SUN", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
+    cron_start();
+    vTaskDelay((2000 * 1000) / portTICK_PERIOD_MS); // This is just to emulate a delay between the calls
+    cron_stop();
+    cron_job_clear_all();
 
     return SF_OK;
 }

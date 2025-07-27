@@ -48,7 +48,7 @@ void sf_gpio_set_level(uint32_t gpio_num, uint8_t level)
     
     status = gpio_set_level(gpio_num, level);
 
-    //ESP_LOGI(TAG, "GPIO set level stats = %d", status);
+    ESP_LOGI(TAG, "GPIO set level to %u stats = %d", level, status);
 }
 
 int sf_gpio_get_level(uint32_t gpio_num)
@@ -56,7 +56,7 @@ int sf_gpio_get_level(uint32_t gpio_num)
     int val = 0;
     
     val = gpio_get_level(gpio_num);
-    //ESP_LOGI(TAG, "GPIO get level val = %d", val);
+    ESP_LOGI(TAG, "GPIO get level val = %d", val);
 
     return (val);
 }
