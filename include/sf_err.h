@@ -43,6 +43,13 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
     }
 
 
+#define SF_CHECK_NULL_RETURN(LOG_TYPE, TAG, val, msg, ...) \
+    if ((val) == NULL) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        return; \
+    }
+
+
 /**
  * @brief Macro to check an error condition and return the status if the condition is met.
  *
@@ -76,6 +83,37 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
     if ((status) == expected) { \
         LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
         return;  \
+    }
+
+
+/**
+ * @brief Macro to check a custom comparison expression and log/return if true.
+ *
+ * @param LOG_TYPE   Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG        Tag for the log message.
+ * @param CMP_EXPR   Comparison expression to evaluate (should return true/false).
+ * @param msg        The log message format string.
+ * @param ...        Additional arguments for the log message.
+ *
+ * If CMP_EXPR is true, logs the message and returns from the function.
+ */
+
+/**
+ * @brief Macro to check a custom comparison expression and log/goto a label if true.
+ *
+ * @param LOG_TYPE   Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG        Tag for the log message.
+ * @param CMP_EXPR   Comparison expression to evaluate (should return true/false).
+ * @param goto_label The label to jump to if the expression is true.
+ * @param msg        The log message format string.
+ * @param ...        Additional arguments for the log message.
+ *
+ * If CMP_EXPR is true, logs the message and jumps to the specified label.
+ */
+#define SF_CHECK_EXPR_RETURN(LOG_TYPE, TAG, CMP_EXPR, goto_label, msg, ...) \
+    if (CMP_EXPR) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        goto goto_label; \
     }
 
 /* Definitions for error constants. */
