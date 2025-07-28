@@ -66,3 +66,20 @@ sf_err_t sf_time_set_sntp_date()
 
     return status;
 }
+
+sf_err_t sf_time_set_timezone(const char* timezone)
+{
+    sf_err_t status = SF_FAIL;
+
+    const char* timezone_str = CONFIG_SIM_FLOW_TIME_DEFUALT_TIMEZONE; 
+    
+    if (timezone != NULL)
+        timezone_str = timezone;
+
+    status = setenv("TZ", timezone_str, 1);
+    SF_CHECK_ERR_RETURN_FAIL(ESP_LOGI, TAG, status, "fail to set timezone")
+    
+    tzset();
+
+    return SF_OK;
+}

@@ -32,3 +32,15 @@ void sf_time_print_current_time();
  * @return sf_err_t SF_OK on success, SF_FAIL on failure.
  */
 sf_err_t sf_time_init();
+
+
+
+/**
+ * @brief Set the system timezone.
+ *
+ * This function sets the system timezone for time calculations and formatting.
+ *
+ * @param timezone   A string representing the timezone (e.g., "UTC", "Europe/Berlin").
+ * @return sf_err_t  SF_OK on success, SF_FAIL on failure.
+ */
+sf_err_t sf_time_set_timezone(const char* timezone);

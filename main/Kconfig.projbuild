@@ -46,4 +46,10 @@ menu "SIM FLOW Time Configuration"
         help
             SNTP timeout in milliseconds for time synchronization.
 
+    config SIM_FLOW_TIME_DEFUALT_TIMEZONE
+        string "defualt timezone"
+        default "IST-2IDT"
+        help
+            SNTP timeout in milliseconds for time synchronization.
+
 endmenu
