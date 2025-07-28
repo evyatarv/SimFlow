@@ -65,7 +65,6 @@ static void sf_wattering_clean_schedule_resourses(sf_watering_scheduler_t* sched
 // Callback to turn on the GPIO (start watering)
 void sf_watering_gpio_on_cb(cron_job *job)
 {
-
     SF_CHECK_NULL_RETURN(ESP_LOGE, TAG, job->data, "GPIO ON: User data can't be null")
 
     sf_gpio_set_level(*(uint32_t*)job->data, 1); // set GPIO level

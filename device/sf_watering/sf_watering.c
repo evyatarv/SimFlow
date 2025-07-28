@@ -51,8 +51,12 @@ sf_err_t sf_watering_device_init()
         goto FAIL;  
     g_device_sts.device_wifi_sts = 0x1; // device wifi initialized
 
+    sf_time_set_timezone(NULL); 
+
     if(sf_time_set_sntp_date())
         goto FAIL;
+
+    
 
     g_device_sts.device_init = 0x1; // device initialized
 
@@ -76,17 +80,6 @@ sf_err_t sf_watering_device_start ()
     printf("Time: %s", ctime(&t));
 
     struct tm *ptm = localtime(&t);
-
-
-	for(int i=0 ; i<10; i++)
-	{
-		ptm->tm_mday++;
-
-		t_new = mktime(ptm);
-	    printf("Time: %s", ctime(&t_new));
-        difference = difftime(t_new, t);
-        printf ("Difference is %.0f seconds\n", difference);
-	}
 
     uint32_t pin = CONFIG_GPIO_OUTPUT_0; 
 
