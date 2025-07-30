@@ -72,20 +72,16 @@ sf_err_t sf_watering_device_start ()
     ESP_LOGI(TAG, "Starting watering device ...");
 
     time_t t;
-    time_t t_new;
-    double difference = 0.0;
 
     time(&t);	
 
     printf("Time: %s", ctime(&t));
 
-    struct tm *ptm = localtime(&t);
-
     uint32_t pin = CONFIG_GPIO_OUTPUT_0; 
 
-    sf_watering_add_schdule("0 15 18 * * SUN", "0 16 18 * * SUN", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
+    sf_watering_add_schdule("0 5 20,9 * * SUN-FRI", "0 30 20,9 * * SUN-FRI", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
     cron_start();
-    vTaskDelay((2000 * 1000) / portTICK_PERIOD_MS); // This is just to emulate a delay between the calls
+    vTaskDelay(pdMS_TO_TICKS(604800000)); 
     cron_stop();
     cron_job_clear_all();
 
