@@ -7,6 +7,7 @@
 #include "cron.h"
 #include "sf_err.h"
 #include "sf_gpio.h"
+#include "sf_time.h"
 
 // Maximum length for area name
 #define MAX_AREA_SIZE   20
@@ -68,6 +69,7 @@ void sf_watering_gpio_on_cb(cron_job *job)
     SF_CHECK_NULL_RETURN(ESP_LOGE, TAG, job->data, "GPIO ON: User data can't be null")
 
     sf_gpio_set_level(*(uint32_t*)job->data, 1); // set GPIO level
+    ESP_LOGI(TAG, "Watering start: %s", sf_time_get_current_time());
 }
 
 
@@ -77,6 +79,7 @@ void sf_watering_gpio_off_cb(cron_job *job)
     SF_CHECK_NULL_RETURN(ESP_LOGE, TAG, job->data, "GPIO OFF: User data can't be null")
 
     sf_gpio_set_level(*(uint32_t*)job->data, 0); // set GPIO level
+    ESP_LOGI(TAG, "Watering end: %s", sf_time_get_current_time());
 }
 
 
@@ -102,7 +105,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     strncpy(new_schedule->area, area, MAX_AREA_SIZE - 1);
     new_schedule->area[MAX_AREA_SIZE - 1] = '\0';
 
-    if (data != NULL && data_size > SF_WATERING_USER_DATA_SIZE)
+    if (data != NULL && data_size <= SF_WATERING_USER_DATA_SIZE)
     {
         new_schedule->data = calloc(data_size, 1); 
         SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, new_schedule, FAIL, "fail allocate user data");

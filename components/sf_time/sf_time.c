@@ -18,6 +18,14 @@ void sf_time_print_current_time()
     ESP_LOGI(TAG,"Device Time -------> : %s", ctime(&now));
 }
 
+char* sf_time_get_current_time()
+{
+    time_t now = 0;
+    time(&now);
+
+    return ctime(&now);
+}
+
 
 sf_err_t sf_time_init()
 {
