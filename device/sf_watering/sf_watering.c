@@ -4,7 +4,8 @@
 #include "sf_time.h"
 #include "sf_watering_scheduler.h"
 #include "cron.h"
-
+#include "sf_files.h"
+#include <errno.h>
 
 #include <sys/time.h>
 
@@ -14,9 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-
-#include "driver/gptimer_types.h"
-
+#include "esp_vfs.h"
 
 static const char* TAG = "SF_WATTERING";
 
@@ -26,6 +25,7 @@ typedef struct sf_device_sts_t
         struct {
             unsigned int device_init                : 1; // device initialized
             unsigned int device_wifi_sts            : 1; // device wifi status
+            unsigned int device_fs_sts              : 1; // device fs status
             unsigned int reserved: 29;
         };
         unsigned int dev_cfg;
@@ -56,7 +56,11 @@ sf_err_t sf_watering_device_init()
     if(sf_time_set_sntp_date())
         goto FAIL;
 
-    
+    if (sf_file_init_fs("/sf_fatfs"))
+        goto FAIL;
+    g_device_sts.device_fs_sts = 0x1; // device fs initialized
+
+
 
     g_device_sts.device_init = 0x1; // device initialized
 
@@ -71,17 +75,43 @@ sf_err_t sf_watering_device_start ()
 {
     ESP_LOGI(TAG, "Starting watering device ...");
 
-    time_t t;
+    char line[128];
 
-    time(&t);	
+    FILE *f;
+    char *pos;
+    ESP_LOGI(TAG, "Reading file");
 
-    printf("Time: %s", ctime(&t));
+    const char *host_filename1 = "/sf_fatfs/sf_watering/sfHelloFile.txt";
+
+    struct stat info;
+
+    if(stat(host_filename1, &info) < 0){
+        ESP_LOGE(TAG, "Failed to read file stats %d", errno);
+        return 1;
+    }
+
+    f = fopen(host_filename1, "rb");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open file for reading");
+        return 1;
+    }
+    fgets(line, sizeof(line), f);
+    fclose(f);
+    // strip newline
+    pos = strchr(line, '\n');
+    if (pos) {
+        *pos = '\0';
+    }
+    ESP_LOGI(TAG, "Read from file: '%s'", line);
+
+    // Unmount FATFS
+    ESP_LOGI(TAG, "Unmounting FAT filesystem");
+    sf_file_deinit_fs("/sf_fatfs");
 
     uint32_t pin = CONFIG_GPIO_OUTPUT_0; 
-
-    sf_watering_add_schdule("0 5 20,9 * * SUN-FRI", "0 30 20,9 * * SUN-FRI", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
+    sf_watering_add_schdule("0 34 18,9 * * SUN-FRI", "0 0 19,10 * * SUN-FRI", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
     cron_start();
-    vTaskDelay(pdMS_TO_TICKS(604800000)); 
+    vTaskDelay(6048000000 / portTICK_PERIOD_MS); 
     cron_stop();
     cron_job_clear_all();
 
