@@ -73,7 +73,7 @@ FAIL:
 
 sf_err_t sf_watering_device_start ()
 {
-    ESP_LOGI(TAG, "Starting watering device ...");
+    ESP_LOGI(TAG, "Starting watering device ....");
 
     char line[128];
 
