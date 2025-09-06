@@ -3,6 +3,7 @@
 #include "sf_wifi.h"
 #include "sf_time.h"
 #include "sf_watering_scheduler.h"
+#include "sf_watering_hi.h"
 #include "cron.h"
 #include "sf_files.h"
 #include <errno.h>
@@ -19,7 +20,7 @@
 
 static const char* TAG = "SF_WATTERING";
 
-typedef struct sf_device_sts_t
+typedef struct sf_device_sts
 {
     union {
         struct {
@@ -108,12 +109,9 @@ sf_err_t sf_watering_device_start ()
     ESP_LOGI(TAG, "Unmounting FAT filesystem");
     sf_file_deinit_fs("/sf_fatfs");
 
-    uint32_t pin = CONFIG_GPIO_OUTPUT_0; 
-    sf_watering_add_schdule("0 34 18,9 * * SUN-FRI", "0 0 19,10 * * SUN-FRI", "Trees", 5, &pin, SF_WATERING_USER_DATA_SIZE);
-    cron_start();
-    vTaskDelay(6048000000 / portTICK_PERIOD_MS); 
-    cron_stop();
-    cron_job_clear_all();
+    sf_watering_start_host_interface();
+    
+
 
     return SF_OK;
 }

@@ -1,3 +1,6 @@
+#ifndef SF_ERR_H
+#define SF_ERR_H
+
 /**
  * @file sf_err.h
  * @brief Error handling definitions and macros for the SimFlow project.
@@ -8,6 +11,7 @@
  */
 
 typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
+
 
 /**
  * @brief Macro to check an error condition and jump to a label if the condition is met.
@@ -20,10 +24,13 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
  * @param ... Additional arguments for the log message.
  */
 #define SF_CHECK_ERR_GOTO(LOG_TYPE, TAG, status, goto_label, msg, ...) \
-    LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
     if ((status) != ESP_OK) { \
+        ESP_LOGE(TAG, msg, ##__VA_ARGS__); \
         status = SF_FAIL; \
         goto goto_label; \
+    } \
+    else { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
     }
 
 /**
@@ -145,3 +152,10 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
 /** @brief Error code indicating invalid parameter for timer operations. */
 #define SF_ERR_TIMER_INVAL_PARAM           0x4001
 
+
+
+
+
+
+
+#endif // SF_ERR_H
