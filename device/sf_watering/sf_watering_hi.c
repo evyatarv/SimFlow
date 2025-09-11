@@ -13,11 +13,13 @@ static const char* TAG = "SF_WATTERING_HI";
 
 static esp_mqtt_client_handle_t client = NULL; 
 
+#pragma pack(1)
 typedef struct  sf_watering_hi_cmd
 {
     uint8_t     cmd;
     uint32_t    data_size;
-    void*       data;
+    void*       data[];
+    // data will always come after here
 }
 sf_watering_hi_cmd_t;
 
@@ -28,10 +30,9 @@ enum SF_SCHEDULER_CMD
     SF_WATERING_GET_SCHEDULERS
 };
 
-
 static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 {
-    sf_watering_hi_cmd_t* new_cmd = NULL; 
+    sf_watering_hi_cmd_t* watering_cmd = NULL; 
 
     if (cmd == NULL || data_size < SF_WATERING_HI_CMD_MIN_SIZE)
     {
@@ -40,12 +41,68 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         goto FAIL;
     }
 
-    new_cmd = (sf_watering_hi_cmd_t*)cmd;
+    // get sf_watering_hi_cmd_t
+    watering_cmd = cmd;
 
-    switch (new_cmd->cmd)
+
+    ESP_LOGI(TAG, "cmd %d", watering_cmd->cmd);
+    ESP_LOGI(TAG, "data size %d", (int)watering_cmd->data_size);
+    ESP_LOGI(TAG, "data %s", (uint8_t*)&watering_cmd->data);
+
+    
+
+    switch (watering_cmd->cmd)
     {
     case SF_WATERING_NEW_CHEDULER:
-        /* code */
+        
+        char* watering_schedule = (char*)&watering_cmd->data;
+
+        int offset = 0;
+        int crone_exp_size = watering_schedule[offset];
+        int area_size = 0;
+        char* start_cron_exp = NULL;
+        char* stop_cron_exp = NULL;
+        char* area_str = NULL;
+        
+
+        // get start cron expretion 
+        offset += 1; 
+        start_cron_exp = watering_schedule + offset;
+        ESP_LOGI(TAG, "cron start exp. %s size: %d", start_cron_exp, crone_exp_size);
+
+        // get cron stop expretion size 
+        offset += crone_exp_size;
+        crone_exp_size = watering_schedule[offset];
+
+        // get stop cron expretion 
+        offset += 1;
+        stop_cron_exp = watering_schedule + offset;
+        ESP_LOGI(TAG, "cron stop exp. %s size: %d", stop_cron_exp, crone_exp_size);
+
+        // get area size 
+        offset += crone_exp_size;
+        area_size = watering_schedule[offset];
+
+        // get area str
+        offset += 1;
+        area_str = watering_schedule + offset;
+        ESP_LOGI(TAG, "area %s size: %d", area_str, area_size);
+
+
+        offset += area_size;
+        ESP_LOGI(TAG, "offset %d", offset);
+
+        
+        // check cmd format 
+        //if (data_size < crone_size_start + crone_size_stop + 2)
+        //{
+        //    ESP_LOGE(TAG, "Wrong SF watering HI *new schecdule* command format");
+        //    goto FAIL;
+        //}
+
+        // add schedule 
+        //sf_watering_add_schdule(start_cron_exp, stop_cron_exp, "BLABLA", 6, NULL, 0);
+
         break;
     
     case SF_WATERING_REMOVE_SCHEDULER:
@@ -100,9 +157,9 @@ static void sf_watering_hi_event_handler(void *handler_args, esp_event_base_t ba
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        ESP_LOGD(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        ESP_LOGD(TAG, "DATA_SIZE=%d\r\n", event->data_len);
-        ESP_LOGD(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
+        ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        ESP_LOGI(TAG, "DATA_SIZE=%d\r\n", event->data_len);
+        //ESP_LOGI(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
 
         sf_watering_hi_cmd_parser(event->data, event->data_len);
         
