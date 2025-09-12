@@ -94,7 +94,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 
 
         // check cmd format 
-        if (data_size != offset)
+        if (watering_cmd->data_size != offset)
         {
             ESP_LOGE(TAG, "Wrong SF watering HI *new schecdule* command format");
             goto FAIL;
