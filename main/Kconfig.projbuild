@@ -53,3 +53,19 @@ menu "SIM FLOW Time Configuration"
             SNTP timeout in milliseconds for time synchronization.
 
 endmenu
+
+menu "SIM FLOW Host Interface"
+
+    config SIM_FLOW_HOST_INTERFACE_URI
+        string "URI"
+        default "pool.ntp.org"
+        help
+            Host address.
+
+    config SIM_FLOW_HOST_INTERFACE_PORT
+        int "Port"
+        default 0
+        help
+            host port.
+
+endmenu
