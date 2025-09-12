@@ -92,16 +92,16 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         offset += area_size;
         ESP_LOGI(TAG, "offset %d", offset);
 
-        
+
         // check cmd format 
-        //if (data_size < crone_size_start + crone_size_stop + 2)
-        //{
-        //    ESP_LOGE(TAG, "Wrong SF watering HI *new schecdule* command format");
-        //    goto FAIL;
-        //}
+        if (data_size != offset)
+        {
+            ESP_LOGE(TAG, "Wrong SF watering HI *new schecdule* command format");
+            goto FAIL;
+        }
 
         // add schedule 
-        //sf_watering_add_schdule(start_cron_exp, stop_cron_exp, "BLABLA", 6, NULL, 0);
+        //sf_watering_add_schdule(start_cron_exp, stop_cron_exp, area_str, area_size, NULL, 0);
 
         break;
     
