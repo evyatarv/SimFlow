@@ -5,23 +5,25 @@
 #include "mqtt_client.h"
 
 
+
 #define SF_MQTT_NEW_SCHEDULER_TOPIC "/topic/schedule"
 #define SF_WATERING_HI_CMD_MIN_SIZE 5
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_HI";
 
-static esp_mqtt_client_handle_t client = NULL; 
+static esp_mqtt_client_handle_t sf_watering_mqtt_lient = NULL; 
 
-#pragma pack(1)
+#pragma pack(push, 1)
 typedef struct  sf_watering_hi_cmd
 {
     uint8_t     cmd;
     uint32_t    data_size;
     void*       data[];
-    // data will always come after here
 }
 sf_watering_hi_cmd_t;
+#pragma pack(pop)
+
 
 enum SF_SCHEDULER_CMD
 {
@@ -32,13 +34,16 @@ enum SF_SCHEDULER_CMD
 
 static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 {
-    sf_watering_hi_cmd_t* watering_cmd = NULL; 
+    sf_err_t status = SF_FAIL;
+
+    sf_watering_hi_cmd_t* watering_cmd = NULL;
+    sf_watering_hi_cmd_t* watering_ret = NULL;
 
     if (cmd == NULL || data_size < SF_WATERING_HI_CMD_MIN_SIZE)
     {
         ESP_LOGE(TAG, "Wrong SF watering HI command format");
         
-        goto FAIL;
+        return;
     }
 
     // get sf_watering_hi_cmd_t
@@ -63,7 +68,8 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         char* start_cron_exp = NULL;
         char* stop_cron_exp = NULL;
         char* area_str = NULL;
-        
+        int schedule_id = -1;
+                
 
         // get start cron expretion 
         offset += 1; 
@@ -94,14 +100,20 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 
 
         // check cmd format 
-        if (watering_cmd->data_size != offset)
-        {
-            ESP_LOGE(TAG, "Wrong SF watering HI *new schecdule* command format");
-            goto FAIL;
-        }
+        SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_cmd->data_size != offset, "Wrong SF watering HI *new schecdule* command format");
 
         // add schedule 
-        //sf_watering_add_schdule(start_cron_exp, stop_cron_exp, area_str, area_size, NULL, 0);
+        status = sf_watering_add_schdule(start_cron_exp, stop_cron_exp, area_str, area_size, NULL, 0, &schedule_id);
+        ESP_LOGI(TAG, "New Schedule ID: %d", schedule_id);
+        SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to add schedule");
+
+        // update ret
+        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + sizeof(uint32_t)); 
+        SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
+
+        watering_ret->cmd = watering_cmd->cmd;
+        watering_ret->data_size = sizeof(uint32_t);
+        memcpy(watering_ret->data, &schedule_id, watering_ret->data_size);
 
         break;
     
@@ -119,13 +131,11 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     }
 
-
-
-
-
-FAIL:
-    return;
-
+    // publish ret to broker 
+    status = esp_mqtt_client_publish(sf_watering_mqtt_lient, SF_WATERING_STATUS_TOPIC, (char*)watering_ret, SF_WATERING_HI_CMD_MIN_SIZE + watering_ret->data_size, 1, 0);
+    free(watering_ret); 
+    watering_ret = NULL;   
+    SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_OK, "Failed to publish ");
 }
 
 static void sf_watering_hi_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -187,13 +197,13 @@ sf_err_t sf_watering_start_host_interface()
 
     };
 
-    client = esp_mqtt_client_init(&mqtt_cfg);
-    SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, client, FAIL, "Fail init mqtt client");
+    sf_watering_mqtt_lient = esp_mqtt_client_init(&mqtt_cfg);
+    SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, sf_watering_mqtt_lient, FAIL, "Fail init mqtt client");
 
-    status = esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, sf_watering_hi_event_handler, NULL);
+    status = esp_mqtt_client_register_event(sf_watering_mqtt_lient, ESP_EVENT_ANY_ID, sf_watering_hi_event_handler, NULL);
     SF_CHECK_ERR_GOTO(ESP_LOGI, TAG, status, FAIL, "Register client handler returned: %d", status);
 
-    status = esp_mqtt_client_start(client);
+    status = esp_mqtt_client_start(sf_watering_mqtt_lient);
     SF_CHECK_ERR_GOTO(ESP_LOGI, TAG, status, FAIL, "Start client returned: %d", status);
 
 

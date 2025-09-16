@@ -129,10 +129,27 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
  *
  * If CMP_EXPR is true, logs the message and jumps to the specified label.
  */
-#define SF_CHECK_EXPR_RETURN(LOG_TYPE, TAG, CMP_EXPR, goto_label, msg, ...) \
+#define SF_CHECK_EXPR_GOTO(LOG_TYPE, TAG, CMP_EXPR, goto_label, msg, ...) \
     if (CMP_EXPR) { \
         LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
         goto goto_label; \
+    }
+
+/**
+ * @brief Macro to check a custom comparison expression and return if true.
+ *
+ * @param LOG_TYPE   Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG        Tag for the log message.
+ * @param CMP_EXPR   Comparison expression to evaluate (should return true/false).
+ * @param msg        The log message format string.
+ * @param ...        Additional arguments for the log message.
+ *
+ * If CMP_EXPR is true, logs the message and jumps to the specified label.
+ */
+#define SF_CHECK_EXPR_RETURN(LOG_TYPE, TAG, CMP_EXPR, msg, ...) \
+    if (CMP_EXPR) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        return; \
     }
 
 /* Definitions for error constants. */

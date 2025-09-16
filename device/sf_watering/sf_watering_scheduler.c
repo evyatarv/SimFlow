@@ -7,6 +7,7 @@
 #include "cron.h"
 #include "sf_err.h"
 #include "sf_gpio.h"
+#include "sf_gpio_cfg.h"
 #include "sf_time.h"
 
 
@@ -61,9 +62,7 @@ static void sf_wattering_clean_schedule_resourses(sf_watering_scheduler_t* sched
 // Callback to turn on the GPIO (start watering)
 void sf_watering_gpio_on_cb(cron_job *job)
 {
-    SF_CHECK_NULL_RETURN(ESP_LOGE, TAG, job->data, "GPIO ON: User data can't be null")
-
-    sf_gpio_set_level(*(uint32_t*)job->data, 1); // set GPIO level
+    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 1); // set GPIO level
     ESP_LOGI(TAG, "Watering start: %s", sf_time_get_current_time());
 }
 
@@ -71,21 +70,19 @@ void sf_watering_gpio_on_cb(cron_job *job)
 // Callback to turn off the GPIO (stop watering)
 void sf_watering_gpio_off_cb(cron_job *job)
 {
-    SF_CHECK_NULL_RETURN(ESP_LOGE, TAG, job->data, "GPIO OFF: User data can't be null")
-
-    sf_gpio_set_level(*(uint32_t*)job->data, 0); // set GPIO level
+    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 0); // set GPIO level
     ESP_LOGI(TAG, "Watering end: %s", sf_time_get_current_time());
 }
 
 
 // Adds a new watering schedule to the linked list
-sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size)
+sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size, int* schedule_id)
 {
     sf_err_t status = SF_FAIL;
     sf_watering_scheduler_t* new_schedule = 0;
     sf_watering_scheduler_t* watering_jobs_curr = watering_jobs_head;
  
-    if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE)
+    if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE || schedule_id == NULL)
     {
         ESP_LOGE(TAG, "wrong param: start_cron_exp:%p stop_cron_exp:%p area: %p area_zise: %u", 
             start_cron_exp, stop_cron_exp, area, area_zise);
@@ -93,7 +90,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     }
 
     // Allocate memory for the new schedule
-    new_schedule = (sf_watering_scheduler_t*)calloc(sizeof(sf_watering_scheduler_t), 1);
+    new_schedule = (sf_watering_scheduler_t*)calloc(1, sizeof(sf_watering_scheduler_t));
     SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, new_schedule, FAIL, "fail allocate sf_watering_scheduler");
 
     // Copy area string into struct and ensure null-termination
@@ -102,7 +99,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 
     if (data != NULL && data_size <= SF_WATERING_USER_DATA_SIZE)
     {
-        new_schedule->data = calloc(data_size, 1); 
+        new_schedule->data = calloc(1, data_size); 
         SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, new_schedule, FAIL, "fail allocate user data");
 
         memcpy(new_schedule->data, data, data_size); 
@@ -117,6 +114,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 
     // Use the start cron job's ID as the schedule ID
     new_schedule->info.id = new_schedule->start_handle->id;
+    *schedule_id = new_schedule->start_handle->id;
 
     // save new schedule 
     // Insert the new schedule at the end of the linked list
@@ -127,12 +125,16 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     watering_jobs_curr = new_schedule; 
     
     status = SF_OK;
+
+    // start chedulare 
+    cron_start();
     
 FAIL:
 
     if (status != SF_OK)
     {
         sf_wattering_clean_schedule_resourses(new_schedule);
+        *schedule_id = -1; 
     }
 
     return status;
