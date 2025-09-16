@@ -27,13 +27,22 @@ sf_watering_scheduler_info_t;
 /**
  * @brief Add a new watering schedule.
  *
+ * This function creates and adds a new watering schedule for a specified area.
+ * The schedule is defined by cron expressions for start and stop times, and can include user data.
+ *
  * @param start_cron_exp  Cron expression for when to start watering (e.g., "0 30 8 * * MON,WED,FRI").
  * @param stop_cron_exp   Cron expression for when to stop watering.
  * @param area            Name or identifier for the area to water.
  * @param area_zise       Length of the area name (should not exceed MAX_AREA_SIZE).
+ * @param data            Pointer to user data associated with the schedule (can be NULL).
+ * @param data_size       Size of the user data in bytes.
+ * @param schedule_id     Pointer to an integer where the unique schedule ID will be stored.
  * @return sf_err_t       SF_OK on success, SF_FAIL on error.
+ *
+ * @note The function allocates memory for the schedule and user data (if provided).
+ *       The caller is responsible for managing the returned schedule ID.
  */
-sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size);
+sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size, int* schedule_id);
 
 /**
  * @brief Remove a watering schedule by its unique ID.
@@ -42,16 +51,6 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
  * @return sf_err_t SF_OK on success, SF_FAIL on error.
  */
 sf_err_t sf_watering_remove_schdule(int id);
-
-/**
- * @brief Pause a watering schedule by its unique ID.
- *
- * This function temporarily disables the specified watering schedule without removing it.
- *
- * @param id      The unique ID of the schedule to pause.
- * @return sf_err_t SF_OK on success, SF_FAIL on error.
- */
-sf_err_t sf_watering_puse_schedule(int id);
 
 /**
  * @brief Pause a watering schedule by its unique ID.

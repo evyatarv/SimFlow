@@ -61,8 +61,6 @@ sf_err_t sf_watering_device_init()
         goto FAIL;
     g_device_sts.device_fs_sts = 0x1; // device fs initialized
 
-
-
     g_device_sts.device_init = 0x1; // device initialized
 
     return SF_OK; 
