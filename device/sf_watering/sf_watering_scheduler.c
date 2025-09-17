@@ -127,11 +127,11 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     }
     watering_jobs_curr = new_schedule; 
     
-    // start schedualer
+    // start scheduler
     status =  cron_start();
     ESP_LOGI(TAG, "Cron start returned: %d", status);
 
-    
+
     status = SF_OK;
     
 FAIL:
