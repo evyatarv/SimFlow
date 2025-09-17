@@ -81,6 +81,8 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     sf_err_t status = SF_FAIL;
     sf_watering_scheduler_t* new_schedule = 0;
     sf_watering_scheduler_t* watering_jobs_curr = watering_jobs_head;
+
+    
  
     if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE || schedule_id == NULL)
     {
@@ -104,6 +106,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 
         memcpy(new_schedule->data, data, data_size); 
     }
+
     // Create cron job for starting watering
     new_schedule->start_handle = cron_job_create(start_cron_exp, sf_watering_gpio_on_cb, new_schedule->data);
     SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, new_schedule->start_handle, FAIL,"fail allocate strat cron job");
@@ -124,10 +127,12 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     }
     watering_jobs_curr = new_schedule; 
     
-    status = SF_OK;
+    // start schedualer
+    status =  cron_start();
+    ESP_LOGI(TAG, "Cron start returned: %d", status);
 
-    // start chedulare 
-    cron_start();
+    
+    status = SF_OK;
     
 FAIL:
 
