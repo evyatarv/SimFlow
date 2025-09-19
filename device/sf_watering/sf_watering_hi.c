@@ -8,6 +8,7 @@
 
 #define SF_MQTT_NEW_SCHEDULER_TOPIC "/topic/schedule"
 #define SF_WATERING_HI_CMD_MIN_SIZE 5
+#define INT_SIZE 4
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_HI";
@@ -118,7 +119,17 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     
     case SF_WATERING_REMOVE_SCHEDULER:
-        /* code */
+        sf_err_t status = SF_FAIL; 
+        
+        if ( watering_cmd->data_size > INT_SIZE ) // data size > int
+        {
+            ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than int =%d", (int)watering_cmd->data_size);
+            return;
+        }
+       int id  = (int) watering_cmd->data;
+       status = sf_watering_remove_schdule(id);
+       SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to remove schedule");
+
         break;
     
     case SF_WATERING_GET_SCHEDULERS:
