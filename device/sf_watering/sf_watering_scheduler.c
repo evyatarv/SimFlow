@@ -141,7 +141,7 @@ FAIL:
 }
 
 // Removes a watering schedule by ID
-sf_err_t sf_wwatering_remove_schdule(int id)
+sf_err_t sf_watering_remove_schdule(int id)
 {
     sf_err_t status = SF_FAIL;
 
