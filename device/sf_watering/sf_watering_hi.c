@@ -47,7 +47,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     }
 
     // get sf_watering_hi_cmd_t
-    watering_cmd = cmd;
+    watering_cmd = (sf_watering_hi_cmd_t*)cmd;
 
 
     ESP_LOGI(TAG, "cmd %d", watering_cmd->cmd);
