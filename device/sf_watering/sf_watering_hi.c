@@ -8,7 +8,7 @@
 
 #define SF_MQTT_NEW_SCHEDULER_TOPIC "/topic/schedule"
 #define SF_WATERING_HI_CMD_MIN_SIZE 5
-#define INT_SIZE 4
+
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_HI";
@@ -120,20 +120,32 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     
     case SF_WATERING_REMOVE_SCHEDULER:
         sf_err_t status = SF_FAIL; 
-        
-        if ( watering_cmd->data_size > INT_SIZE ) // data size > int
+        ESP_LOGI(TAG, "SF_WATERING_REMOVE_SCHEDULER "); 
+        if ( watering_cmd->data_size != sizeof(int) ) 
         {
             ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than int =%d", (int)watering_cmd->data_size);
             return;
         }
-       int id  = (int) watering_cmd->data;
+       int id  = (int) *(watering_cmd->data);
        status = sf_watering_remove_schdule(id);
-       SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to remove schedule");
+       SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to remove schedule 0x%x",id);
+       ESP_LOGI(TAG, "Removed Schedule ID: 0x%x", id);
+
+        // update ret for publish
+        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + sizeof(uint32_t)); 
+        SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocate ret msg to broker");
+
+        //watering data will hold status of remove operation
+        watering_ret->cmd = watering_cmd->cmd;
+        watering_ret->data_size = sizeof(int);
+        memcpy(watering_ret->data, &status, sizeof(int));
+        
 
         break;
     
     case SF_WATERING_GET_SCHEDULERS:
         /* code */
+        ESP_LOGI(TAG, "SF_WATERING_GET_SCHEDULERS "); 
         break;
 
 
@@ -142,6 +154,10 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     }
 
+
+    ESP_LOGI(TAG, "esp_mqtt_client_publish client p=%p ", sf_watering_mqtt_lient);
+    ESP_LOGI(TAG, "esp_mqtt_client_publish client data=%p  ",  (char*)watering_ret);
+    
     // publish ret to broker 
     status = esp_mqtt_client_publish(sf_watering_mqtt_lient, SF_WATERING_STATUS_TOPIC, (char*)watering_ret, SF_WATERING_HI_CMD_MIN_SIZE + watering_ret->data_size, 1, 0);
     SF_CHECK_ERR_NO_RETURN_STATUS(ESP_LOGI, TAG, status, "Failed to publish ");
