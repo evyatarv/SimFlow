@@ -47,7 +47,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     }
 
     // get sf_watering_hi_cmd_t
-    watering_cmd = cmd;
+    watering_cmd = (sf_watering_hi_cmd_t*)cmd;
 
 
     ESP_LOGI(TAG, "cmd %d", watering_cmd->cmd);
@@ -133,9 +133,15 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 
     // publish ret to broker 
     status = esp_mqtt_client_publish(sf_watering_mqtt_lient, SF_WATERING_STATUS_TOPIC, (char*)watering_ret, SF_WATERING_HI_CMD_MIN_SIZE + watering_ret->data_size, 1, 0);
-    free(watering_ret); 
-    watering_ret = NULL;   
-    SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_OK, "Failed to publish ");
+    SF_CHECK_ERR_NO_RETURN_STATUS(ESP_LOGI, TAG, status, "Failed to publish ");
+
+    if (watering_ret != NULL)
+    {
+        free(watering_ret); 
+        watering_ret = NULL; 
+    }
+
+    
 }
 
 static void sf_watering_hi_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)

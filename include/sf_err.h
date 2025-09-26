@@ -97,6 +97,28 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
         return SF_OK; \
     }
 
+/**
+ * @brief Macro to check an error condition and prints prefered log type or err log in case of
+ * an error
+ *
+ * @param LOG_TYPE   Logging function to use (e.g., ESP_LOGE, ESP_LOGW).
+ * @param TAG        Tag for the log message.
+ * @param status     The status to check against ESP_OK.
+ * @param msg        The log message format string.
+ * @param ...        Additional arguments for the log message.
+ *
+ *
+ * This macro logs the provided message and then checks if the provided status
+ * equals ESP_OK.
+ */
+#define SF_CHECK_ERR_NO_RETURN_STATUS(LOG_TYPE, TAG, status, msg, ...) \
+    if ((status) != ESP_OK) { \
+        ESP_LOGE(TAG, msg, ##__VA_ARGS__); \
+    } \
+    else { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+    }
+
 
 /**
  * @brief Macro to check if a status matches an expected value and return failure if so.
