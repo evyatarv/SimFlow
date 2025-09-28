@@ -172,7 +172,7 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
     if (CMP_EXPR) { \
         LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
         return; \
-    }
+    } \
 
 /* Definitions for error constants. */
 
