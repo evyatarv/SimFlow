@@ -120,7 +120,6 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     
     case SF_WATERING_REMOVE_SCHEDULER:
         sf_err_t status = SF_FAIL; 
-        ESP_LOGI(TAG, "SF_WATERING_REMOVE_SCHEDULER "); 
         if ( watering_cmd->data_size != sizeof(int) ) 
         {
             ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than int =%d", (int)watering_cmd->data_size);
@@ -137,8 +136,8 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 
         //watering data will hold status of remove operation
         watering_ret->cmd = watering_cmd->cmd;
-        watering_ret->data_size = sizeof(int);
-        memcpy(watering_ret->data, &status, sizeof(int));
+        watering_ret->data_size = sizeof(uint32_t);
+        memcpy(watering_ret->data, &status, sizeof(uint32_t));
         
 
         break;
@@ -154,9 +153,6 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     }
 
-
-    ESP_LOGI(TAG, "esp_mqtt_client_publish client p=%p ", sf_watering_mqtt_lient);
-    ESP_LOGI(TAG, "esp_mqtt_client_publish client data=%p  ",  (char*)watering_ret);
     
     // publish ret to broker 
     status = esp_mqtt_client_publish(sf_watering_mqtt_lient, SF_WATERING_STATUS_TOPIC, (char*)watering_ret, SF_WATERING_HI_CMD_MIN_SIZE + watering_ret->data_size, 1, 0);
