@@ -52,6 +52,9 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
  */
 sf_err_t sf_watering_remove_schdule(int id);
 
+sf_err_t sf_watering_print_schedule();
+/* Print the current watering schedule */
+
 /**
  * @brief Pause a watering schedule by its unique ID.
  *

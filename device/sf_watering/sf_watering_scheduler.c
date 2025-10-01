@@ -121,11 +121,23 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 
     // save new schedule 
     // Insert the new schedule at the end of the linked list
-    while (watering_jobs_curr != NULL)
+    if (watering_jobs_head == NULL)
     {
-        watering_jobs_curr = watering_jobs_curr->next_schedule;
+        watering_jobs_head = new_schedule;
+        ESP_LOGI(TAG, "Watering list was empty, set head to new_schedule: %p", new_schedule);
     }
-    watering_jobs_curr = new_schedule; 
+    else
+    {
+        while (watering_jobs_curr->next_schedule != NULL)
+        {
+            ESP_LOGI(TAG, "Watering list: watering_jobs_curr = %p", watering_jobs_curr);
+            watering_jobs_curr = watering_jobs_curr->next_schedule;
+        }
+        watering_jobs_curr->next_schedule = new_schedule;
+        ESP_LOGI(TAG, "Added new_schedule to end of list: %p", new_schedule);
+    }
+
+    ESP_LOGI(TAG, "Watering last item watering_jobs_curr: %p", new_schedule );
     
     // start scheduler
     status =  cron_start();
@@ -146,7 +158,7 @@ FAIL:
 }
 
 // Removes a watering schedule by ID
-sf_err_t sf_wwatering_remove_schdule(int id)
+sf_err_t sf_watering_remove_schdule(int id)
 {
     sf_err_t status = SF_FAIL;
 
@@ -154,7 +166,7 @@ sf_err_t sf_wwatering_remove_schdule(int id)
     sf_watering_scheduler_t* curr = watering_jobs_head; 
     sf_watering_scheduler_t* prev = NULL;
 
-
+    ESP_LOGI(TAG, "sf_watering_remove_schdule curr = %d ", id);
     // Traverse the list to find the schedule with the given ID
     while (curr != NULL)
     {
@@ -179,6 +191,44 @@ sf_err_t sf_wwatering_remove_schdule(int id)
         prev = curr; 
         curr = curr->next_schedule;
     }
+
+    return status;
+}
+
+sf_err_t sf_watering_print_schedule()
+{
+    sf_err_t status = SF_FAIL;
+
+    // Pointer for traversing the linked list
+    sf_watering_scheduler_t* curr = watering_jobs_head; 
+    int counter = 0;
+
+    // Traverse the list to find the schedule with the given ID
+    if (curr == NULL)
+    {
+        ESP_LOGI(TAG, "No watering schedules found.");
+        return SF_OK;
+    }
+
+    ESP_LOGI(TAG, "Current Watering Schedules:");
+    while (curr != NULL)
+    {
+        ESP_LOGI(TAG, "-----------------------------------");
+        ESP_LOGI(TAG, "Counter =%d, Schedule ID: %d",counter, (int) curr->info.id);
+        if (curr->data != NULL)
+        {
+            ESP_LOGI(TAG, "User Data: 0x%08X", *(unsigned int*)(curr->data));
+        }
+        else
+        {
+            ESP_LOGI(TAG, "User Data: None");
+        }
+        curr = curr->next_schedule;
+        counter++;
+    }
+    ESP_LOGI(TAG, "Counter: %d", counter );
+
+    status = SF_OK;
 
     return status;
 }
