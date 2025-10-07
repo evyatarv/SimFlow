@@ -156,7 +156,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     
     // publish ret to broker 
     status = esp_mqtt_client_publish(sf_watering_mqtt_lient, SF_WATERING_STATUS_TOPIC, (char*)watering_ret, SF_WATERING_HI_CMD_MIN_SIZE + watering_ret->data_size, 1, 0);
-    SF_CHECK_ERR_NO_RETURN_STATUS(ESP_LOGI, TAG, status, "Failed to publish ");
+    SF_CHECK_EXP_NO_RETURN_STATUS(ESP_LOGI, TAG, status < SF_OK, "MQTT publish retuned %d", status);
 
     if (watering_ret != NULL)
     {

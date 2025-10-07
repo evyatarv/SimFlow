@@ -111,8 +111,8 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
  * This macro logs the provided message and then checks if the provided status
  * equals ESP_OK.
  */
-#define SF_CHECK_ERR_NO_RETURN_STATUS(LOG_TYPE, TAG, status, msg, ...) \
-    if ((status) != ESP_OK) { \
+#define SF_CHECK_EXP_NO_RETURN_STATUS(LOG_TYPE, TAG, CMP_EXPR, msg, ...) \
+    if (CMP_EXPR) { \
         ESP_LOGE(TAG, msg, ##__VA_ARGS__); \
     } \
     else { \

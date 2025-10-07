@@ -80,9 +80,8 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 {
     sf_err_t status = SF_FAIL;
     sf_watering_scheduler_t* new_schedule = 0;
-    sf_watering_scheduler_t* watering_jobs_curr = watering_jobs_head;
+    sf_watering_scheduler_t** watering_jobs_curr = &watering_jobs_head;
 
-    
  
     if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE || schedule_id == NULL)
     {
@@ -121,23 +120,12 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 
     // save new schedule 
     // Insert the new schedule at the end of the linked list
-    if (watering_jobs_head == NULL)
+    while (*watering_jobs_curr != NULL)
     {
-        watering_jobs_head = new_schedule;
-        ESP_LOGI(TAG, "Watering list was empty, set head to new_schedule: %p", new_schedule);
+        watering_jobs_curr = &(*watering_jobs_curr)->next_schedule;
+        
     }
-    else
-    {
-        while (watering_jobs_curr->next_schedule != NULL)
-        {
-            ESP_LOGI(TAG, "Watering list: watering_jobs_curr = %p", watering_jobs_curr);
-            watering_jobs_curr = watering_jobs_curr->next_schedule;
-        }
-        watering_jobs_curr->next_schedule = new_schedule;
-        ESP_LOGI(TAG, "Added new_schedule to end of list: %p", new_schedule);
-    }
-
-    ESP_LOGI(TAG, "Watering last item watering_jobs_curr: %p", new_schedule );
+    *watering_jobs_curr = new_schedule; 
     
     // start scheduler
     status =  cron_start();
