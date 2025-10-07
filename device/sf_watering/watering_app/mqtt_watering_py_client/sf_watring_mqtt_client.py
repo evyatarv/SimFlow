@@ -114,7 +114,7 @@ def publish(client):
         print(my_buffer)
        
         result = client.publish(topic_new_scheduler, my_buffer)
-        # result: [0, 1]
+        # result: [0, 1] 
         status = result[0]
         if status == 0:
             print(f"Send `{my_buffer}` to topic `{topic_new_scheduler}`")
