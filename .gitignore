@@ -3,3 +3,6 @@ build/
 .devcontainer/
 sdkconfig
 sdkconfig.old
+.device/sf_watering/watering_app/frontend/dist
+.device/sf_watering/watering_app/frontend/node_modules
+.device/sf_watering/watering_app/backend/__pycache__
