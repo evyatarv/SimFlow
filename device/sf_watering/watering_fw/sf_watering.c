@@ -36,10 +36,10 @@ typedef struct sf_device_sts
 sf_device_sts_t g_device_sts = {0};
 
 
-sf_err_t sf_watering_device_init()
+sf_err_t init_device(sf_device_cfg_t dev_cfg)
 {
     if (sf_gpio_init())
-        goto FAIL;
+    goto FAIL;
 
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -70,8 +70,9 @@ FAIL:
 }
 
 
-sf_err_t sf_watering_device_start ()
-{
+
+sf_err_t device_start ()
+{	
     ESP_LOGI(TAG, "Starting watering device ....");
 
     char line[128];
@@ -108,8 +109,6 @@ sf_err_t sf_watering_device_start ()
     sf_file_deinit_fs("/sf_fatfs");
 
     sf_watering_start_host_interface();
-    
-
 
     return SF_OK;
 }

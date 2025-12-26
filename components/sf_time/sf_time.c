@@ -85,7 +85,7 @@ sf_err_t sf_time_set_timezone(const char* timezone)
         timezone_str = timezone;
 
     status = setenv("TZ", timezone_str, 1);
-    SF_CHECK_ERR_RETURN_FAIL(ESP_LOGI, TAG, status, "fail to set timezone")
+    SF_CHECK_ERR_RETURN_STATUS(ESP_LOGI, TAG, status, "Set timezone return with status %d", status); 
     
     tzset();
 
