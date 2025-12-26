@@ -6,7 +6,7 @@
 
 
 
-#define SF_MQTT_NEW_SCHEDULER_TOPIC "/topic/schedule"
+#define SF_MQTT_NEW_SCHEDULER_TOPIC "sf_watering/schedule"
 #define SF_WATERING_HI_CMD_MIN_SIZE 5
 
 

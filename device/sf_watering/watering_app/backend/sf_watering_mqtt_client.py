@@ -19,7 +19,7 @@ class sf_mqtt_watering_client:
     _broker_username:str
     _broker_pass:str
     _client: mqtt_client.Client
-    _topic_watering_status = "sf_watering/watering_status"
+    _topic_watering_status = "sf_watering/schedule"
 
     @staticmethod
     def _on_connect(client, userdata, flags, rc):
@@ -71,7 +71,7 @@ class sf_mqtt_watering_client:
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.connect(self._broker_address, self._broker_port)
-        self._client.subscribe(self._topic_watering_status)
+        #self._client.subscribe(self._topic_watering_status)
         self._client.on_message = self._on_message
 
     def start_client(self):
