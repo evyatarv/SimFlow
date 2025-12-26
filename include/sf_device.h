@@ -30,7 +30,7 @@ typedef union sf_device_cfg_t
  *     - ESP_ERR_INVALID_ARG Parameter error
  *
  */
-sf_err_t init_device(sf_device_cfg_t dev_cfg);
+extern sf_err_t init_device(sf_device_cfg_t dev_cfg);
 
 /**
  * @brief GPIO common configuration
@@ -46,4 +46,4 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg);
  *     - ESP_ERR_INVALID_ARG Parameter error
  *
  */
-sf_err_t device_start ();
+extern sf_err_t device_start ();
