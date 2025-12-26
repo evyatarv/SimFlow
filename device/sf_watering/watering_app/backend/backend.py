@@ -14,7 +14,7 @@ BROKER_ADDRESS = "localhost"
 BROKER_PORT = 1883
 BROKER_USERNAME = "user"    
 BROKER_PASSWORD = "password" 
-TOPIC = "sf_watering/watering_status"
+TOPIC = "sf_watering/schedule"
 
 # Initialize MQTT Client
 mqtt_client = sf_mqtt_watering_client(
@@ -40,8 +40,8 @@ def convert_to_cron(time_str, duration_minutes, days_array):
     total_stop_minutes = (total_start_minutes + duration_minutes) % (24 * 60)
     stop_h = total_stop_minutes // 60
     stop_m = total_stop_minutes % 60
-    start_cron = f"{start_m} {start_h} * * {cron_days}"
-    stop_cron = f"{stop_m} {stop_h} * * {cron_days}"
+    start_cron = f"* {start_m} {start_h} * * {cron_days}"
+    stop_cron = f"* {stop_m} {stop_h} * * {cron_days}"
     return start_cron, stop_cron
 
 # --- API ENDPOINT ---
