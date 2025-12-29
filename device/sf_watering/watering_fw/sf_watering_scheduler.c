@@ -13,6 +13,7 @@
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_SCHEDULER";
+int num_of_schedules = 0;
 
 
 // Forward declaration for the scheduler struct
@@ -141,6 +142,8 @@ FAIL:
         sf_wattering_clean_schedule_resourses(new_schedule);
         *schedule_id = -1; 
     }
+    
+    num_of_schedules++;
 
     return status;
 }
@@ -179,8 +182,79 @@ sf_err_t sf_watering_remove_schdule(int id)
         prev = curr; 
         curr = curr->next_schedule;
     }
-
+    if (status == SF_OK)
+    {
+        num_of_schedules--; //TODO cant be less than 0?
+    }
     return status;
+}
+
+/*
+data to return per schedule
+schedule aread STR from sf_watering_scheduler_info_t
+schedule ID form sf_watering_scheduler_info_t
+schedule expr. from cron_job_struct
+
+returned data stucture:
+Size of data  - 4bytes
+number of schedules - 4bytes 
+data per schedule
+
+*/
+sf_err_t sf_watering_get_schedule_list(char* list){
+    sf_err_t status = SF_FAIL;
+    char* data_per_schedule = NULL;
+    int total_size = 0;
+
+    // Pointer for traversing the linked list
+    sf_watering_scheduler_t* curr = watering_jobs_head; 
+    int counter = 0;
+
+    // Checking list is not empty
+    if (curr == NULL)
+    {
+        ESP_LOGI(TAG, "No watering schedules found.");
+        return status;  //TODO what value is expected to return here
+    }
+
+    //Size to allocate for this schedule entry
+    int size = sizeof(curr->info) + sizeof(curr->start_handle->expression) + sizeof(curr->stop_handle->expression);
+    data_per_schedule = (char*)calloc(1, size);
+
+    
+    //First time add total size at begining of list
+    int size_to_allocate = sizeof(int)*2 + (num_of_schedules * size);
+
+    list = (char*)calloc(1, size_to_allocate);
+
+    //the size of data is less in 8 bytes which are size and number of schedules which needed for allocation
+    int size_of_data = size_to_allocate - sizeof(int)*2;
+    memcpy(list, &size_of_data, sizeof(int));
+    memcpy(list + sizeof(int), &num_of_schedules, sizeof(int));
+
+    while (curr != NULL)
+    {
+        
+        //build data per schedule
+        memcpy(data_per_schedule, &curr->info , sizeof(curr->info));
+        memcpy(data_per_schedule + sizeof(curr->info), &curr->start_handle->expression , sizeof(curr->start_handle->expression));
+        memcpy(data_per_schedule + sizeof(curr->info) + sizeof(curr->start_handle->expression), &curr->stop_handle->expression , sizeof(curr->stop_handle->expression));
+
+        //copy data per schedule to list
+        memcpy(list + counter*size + sizeof(int)*2, data_per_schedule, size);
+
+        curr = curr->next_schedule;    
+        counter++;
+
+    }
+
+    free(data_per_schedule);
+
+    ESP_LOGI(TAG, "Counter: %d", counter );
+
+    status = SF_OK;
+    return status;
+
 }
 
 sf_err_t sf_watering_print_schedule()
