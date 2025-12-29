@@ -119,7 +119,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     
     case SF_WATERING_REMOVE_SCHEDULER:
-        sf_err_t status = SF_FAIL; 
+        status = SF_FAIL; 
         if ( watering_cmd->data_size != sizeof(int) ) 
         {
             ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than int =%d", (int)watering_cmd->data_size);
@@ -143,10 +143,26 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     
     case SF_WATERING_GET_SCHEDULERS:
-        /* code */
+        
         ESP_LOGI(TAG, "SF_WATERING_GET_SCHEDULERS "); 
-        break;
+        status = SF_FAIL;
+        char* list = NULL;
 
+        status = sf_watering_get_schedule_list(list);
+        if (status != SF_OK) {
+            ESP_LOGE(TAG, "Failed to get schedule list");
+        }
+        int data_size = 0;
+        memcpy(&data_size, list, sizeof(int));
+
+        //allaocted data includes int size for number of schedules
+        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size + sizeof(int)); 
+        watering_ret->cmd = watering_cmd->cmd;
+        watering_ret->data_size = data_size;//the data size field does not include the int for number of schedules
+        memcpy(watering_ret->data, list + sizeof(int), data_size);
+        free(list);
+
+        break;
 
     default:
         ESP_LOGE(TAG, "Wrong SF watering command not supported");

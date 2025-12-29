@@ -77,8 +77,29 @@ sf_err_t sf_watering_puse_schedule(int id);
  *
  * @note The caller must free the buffer pointed to by *info after use.
  */
-sf_err_t sf_watering_get_schedules(sf_watering_scheduler_info_t** info, uint8_t num_of_schedulers);
+sf_err_t sf_watering_get_schedules(sf_watering_scheduler_info_t** info, uint8_t num_of_schedulers); //TODO remove?
 
+/**
+ * @brief Retrieve a serialized list of all watering schedules.
+ * 
+ * This function allocates a buffer and fills it with a serialized representation of all active watering schedules.
+ * The caller is responsible for freeing the allocated buffer.
+ * 
+ * returned data stucture:
+*  Size of data  - 4bytes
+ *  number of schedules - 4bytes
+ *  data per schedule
+ *  data to returned per schedule
+ *  schedule area STR from sf_watering_scheduler_info_t
+ *  schedule ID form sf_watering_scheduler_info_t
+ *  schedule expr. from cron_job_struct
+ *
+ * @param list                Pointer to a buffer where the serialized schedule list will be stored.
+ * @return sf_err_t           SF_OK on success, SF_FAIL on error (e.g., if list is NULL or allocation fails).
+ *
+ * @note The caller must free the buffer pointed to by list after use.
+ */
+sf_err_t sf_watering_get_schedule_list(char* list);
 
 #endif // SF_WATERING_SCHEDULER_H
 
