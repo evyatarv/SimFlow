@@ -13,6 +13,12 @@ RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
 MAX_RECONNECT_DELAY = 60
 
+
+SF_WATERING_ADD_SCHEDULE    = 1
+SF_WATERING_REMOVE_SCHEDULE = 2
+SF_WATERING_GET_SCHEDULES   = 3
+
+
 class sf_mqtt_watering_client:
     _broker_address:str
     _broker_port:str
@@ -82,7 +88,7 @@ class sf_mqtt_watering_client:
         stop_exp_len = len(stop_time) + 1
         area_len = len(area) + 1
         my_buffer = bytearray()
-        my_buffer.append(1)
+        my_buffer.append(SF_WATERING_ADD_SCHEDULE)
         my_buffer.extend(struct.pack('<I',start_exp_len + stop_exp_len + area_len + 3))
         my_buffer.extend(struct.pack('<B',start_exp_len))
         my_buffer.extend(start_time.encode("utf-8"))
@@ -93,6 +99,13 @@ class sf_mqtt_watering_client:
         my_buffer.extend(struct.pack('<B',area_len))
         my_buffer.extend(area.encode("utf-8"))
         my_buffer.append(0)
+        print(my_buffer)
+        self._publish_msg(my_buffer)
+
+    def get_schedules(self):
+        my_buffer = bytearray()
+        my_buffer.append(SF_WATERING_GET_SCHEDULES)
+        my_buffer.extend(struct.pack('<I',1))
         print(my_buffer)
         self._publish_msg(my_buffer)
 

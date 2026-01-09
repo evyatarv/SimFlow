@@ -13,26 +13,41 @@
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_SCHEDULER";
-int num_of_schedules = 0;
-
-
-// Forward declaration for the scheduler struct
-typedef struct sf_watering_scheduler sf_watering_scheduler_t;
 
 
 // Structure representing a watering schedule job
-struct sf_watering_scheduler
+typedef struct sf_watering_scheduler
 {
     cron_job*                       start_handle;           // Handle for the cron job that starts watering
     cron_job*                       stop_handle;            // Handle for the cron job that stops watering
     void*                           data;                   // user data 
     sf_watering_scheduler_info_t    info;                   // scheduler info
-    sf_watering_scheduler_t*        next_schedule;          // Pointer to the next schedule in the linked list
-};
+    struct sf_watering_scheduler*   next_schedule;          // Pointer to the next schedule in the linked list
+}
+sf_watering_scheduler_t;
 
 
-// Head pointer for the linked list of watering jobs
-static sf_watering_scheduler_t* watering_jobs_head = NULL;
+typedef struct sf_watering_scheduler_data
+{
+    uint32_t num_of_schedules;  // Number of watering schedules
+    sf_watering_scheduler_t* watering_jobs_head; // Head pointer for the linked list of watering jobs
+}sf_watering_scheduler_data_t;
+
+
+// saves watering schedules data 
+static sf_watering_scheduler_data_t watering_jobs_data = {0};
+
+
+static uint32_t sf_watering_get_schedule_entry_size()
+{
+    uint32_t entry_size = 0;
+
+    //Size to allocate for this schedule entry id|area|start_expr|stop_expr
+    entry_size = sizeof(sf_watering_scheduler_info_t) + sizeof(cron_expr)*2;
+
+    return entry_size;
+}
+
 
 static void sf_wattering_clean_schedule_resourses(sf_watering_scheduler_t* schedule)
 {
@@ -81,7 +96,7 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
 {
     sf_err_t status = SF_FAIL;
     sf_watering_scheduler_t* new_schedule = 0;
-    sf_watering_scheduler_t** watering_jobs_curr = &watering_jobs_head;
+    sf_watering_scheduler_t** watering_jobs_curr = &watering_jobs_data.watering_jobs_head;
 
  
     if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE || schedule_id == NULL)
@@ -132,7 +147,6 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     status =  cron_start();
     ESP_LOGI(TAG, "Cron start returned: %d", status);
 
-
     status = SF_OK;
     
 FAIL:
@@ -143,7 +157,7 @@ FAIL:
         *schedule_id = -1; 
     }
     
-    num_of_schedules++;
+    watering_jobs_data.num_of_schedules++;
 
     return status;
 }
@@ -154,7 +168,7 @@ sf_err_t sf_watering_remove_schdule(int id)
     sf_err_t status = SF_FAIL;
 
     // Pointers for traversing the linked list
-    sf_watering_scheduler_t* curr = watering_jobs_head; 
+    sf_watering_scheduler_t* curr = watering_jobs_data.watering_jobs_head; 
     sf_watering_scheduler_t* prev = NULL;
 
     ESP_LOGI(TAG, "sf_watering_remove_schdule curr = %d ", id);
@@ -170,7 +184,7 @@ sf_err_t sf_watering_remove_schdule(int id)
             }
             else
             {
-                watering_jobs_head = curr->next_schedule;
+                watering_jobs_data.watering_jobs_head = curr->next_schedule;
             }
 
             sf_wattering_clean_schedule_resourses(curr);
@@ -184,76 +198,68 @@ sf_err_t sf_watering_remove_schdule(int id)
     }
     if (status == SF_OK)
     {
-        num_of_schedules--; //TODO cant be less than 0?
+        watering_jobs_data.num_of_schedules--; //TODO cant be less than 0?
     }
     return status;
 }
 
-/*
-data to return per schedule
-schedule aread STR from sf_watering_scheduler_info_t
-schedule ID form sf_watering_scheduler_info_t
-schedule expr. from cron_job_struct
-
-returned data stucture:
-Size of data  - 4bytes
-number of schedules - 4bytes 
-data per schedule
-
-*/
-sf_err_t sf_watering_get_schedule_list(char* list){
-    sf_err_t status = SF_FAIL;
-    char* data_per_schedule = NULL;
-    int total_size = 0;
-
-    // Pointer for traversing the linked list
-    sf_watering_scheduler_t* curr = watering_jobs_head; 
-    int counter = 0;
+uint32_t sf_watering_get_schedules_data_size()
+{
+    uint32_t entry_size = 0;
+    uint32_t data_size = 0;
 
     // Checking list is not empty
-    if (curr == NULL)
+    if (watering_jobs_data.watering_jobs_head == NULL)
     {
         ESP_LOGI(TAG, "No watering schedules found.");
-        return status;  //TODO what value is expected to return here
+        return 0;
     }
 
-    //Size to allocate for this schedule entry
-    int size = sizeof(curr->info) + sizeof(curr->start_handle->expression) + sizeof(curr->stop_handle->expression);
-    data_per_schedule = (char*)calloc(1, size);
+    entry_size = sf_watering_get_schedule_entry_size();
 
-    
-    //First time add total size at begining of list
-    int size_to_allocate = sizeof(int)*2 + (num_of_schedules * size);
+    //calc total data size entry_size|data
+    data_size = (watering_jobs_data.num_of_schedules * entry_size);
 
-    list = (char*)calloc(1, size_to_allocate);
+    return data_size;
+}
 
-    //the size of data is less in 8 bytes which are size and number of schedules which needed for allocation
-    int size_of_data = size_to_allocate - sizeof(int)*2;
-    memcpy(list, &size_of_data, sizeof(int));
-    memcpy(list + sizeof(int), &num_of_schedules, sizeof(int));
 
-    while (curr != NULL)
+sf_err_t sf_watering_get_schedule_list(uint8_t* list, uint32_t size){
+    uint32_t data_counter = 0;
+    uint32_t data_size = 0;
+
+    sf_watering_scheduler_t* curr = watering_jobs_data.watering_jobs_head; 
+
+    data_size = sf_watering_get_schedules_data_size();
+
+    if (list == NULL || size < data_size + sizeof(uint32_t))
     {
-        
-        //build data per schedule
-        memcpy(data_per_schedule, &curr->info , sizeof(curr->info));
-        memcpy(data_per_schedule + sizeof(curr->info), &curr->start_handle->expression , sizeof(curr->start_handle->expression));
-        memcpy(data_per_schedule + sizeof(curr->info) + sizeof(curr->start_handle->expression), &curr->stop_handle->expression , sizeof(curr->stop_handle->expression));
-
-        //copy data per schedule to list
-        memcpy(list + counter*size + sizeof(int)*2, data_per_schedule, size);
-
-        curr = curr->next_schedule;    
-        counter++;
-
+        ESP_LOGE(TAG, "list size too small or NULL");
+        return SF_FAIL;
     }
 
-    free(data_per_schedule);
+    // copy num of entries
+    memcpy(list, &watering_jobs_data.num_of_schedules, sizeof(uint32_t));
+    data_counter += sizeof(uint32_t);
 
-    ESP_LOGI(TAG, "Counter: %d", counter );
+    while (curr != NULL)  
+    {
+        // copy schedule info 
+        memcpy(list + data_counter, &curr->info , sizeof(curr->info));
+        data_counter += sizeof(curr->info);
 
-    status = SF_OK;
-    return status;
+        // copy start schedule expr.
+        memcpy(list + data_counter, &curr->start_handle->expression , sizeof(curr->start_handle->expression));
+        data_counter += sizeof(curr->start_handle->expression);
+
+        // copy stop schedule expr. 
+        memcpy(list + data_counter, &curr->stop_handle->expression , sizeof(curr->stop_handle->expression));
+        data_counter += sizeof(curr->stop_handle->expression);
+
+        curr = curr->next_schedule;   
+    }
+
+    return SF_OK;
 
 }
 
@@ -262,7 +268,7 @@ sf_err_t sf_watering_print_schedule()
     sf_err_t status = SF_FAIL;
 
     // Pointer for traversing the linked list
-    sf_watering_scheduler_t* curr = watering_jobs_head; 
+    sf_watering_scheduler_t* curr = watering_jobs_data.watering_jobs_head; 
     int counter = 0;
 
     // Traverse the list to find the schedule with the given ID
@@ -301,7 +307,7 @@ sf_err_t sf_watering_puse_schedule(int id)
     sf_err_t status = SF_FAIL;
 
     // Pointer for traversing the linked list
-    sf_watering_scheduler_t* curr = watering_jobs_head; 
+    sf_watering_scheduler_t* curr = watering_jobs_data.watering_jobs_head; 
 
     // Traverse the list to find the schedule with the given ID
     while (curr != NULL)

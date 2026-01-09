@@ -57,6 +57,13 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
     }
 
 
+#define SF_CHECK_NULL_RETURN_ERR(LOG_TYPE, TAG, val, msg, ...) \
+    if ((val) == NULL) { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+        return SF_FAIL; \
+    }
+
+
 /**
  * @brief Macro to check an error condition and return the status if the condition is met.
  *

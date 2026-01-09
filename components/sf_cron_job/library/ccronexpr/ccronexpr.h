@@ -40,6 +40,7 @@ extern "C" {
     /**
  * Parsed cron expression
  */
+#pragma pack(push, 1)
 typedef struct {
     uint8_t seconds[8];
     uint8_t minutes[8];
@@ -48,6 +49,7 @@ typedef struct {
     uint8_t days_of_month[4];
     uint8_t months[2];
 } cron_expr;
+#pragma pack(pop)
 
 /**
  * Parses specified cron expression.
