@@ -146,21 +146,35 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         
         ESP_LOGI(TAG, "SF_WATERING_GET_SCHEDULERS "); 
         status = SF_FAIL;
-        char* list = NULL;
+        uint32_t data_size = 0;
 
-        status = sf_watering_get_schedule_list(list);
+        // buffer structure [CMD][data_size][num_of_elements|sche1|sche2|...]
+
+        data_size += sf_watering_get_schedules_data_size();
+        data_size += sizeof(uint32_t); 
+        
+        //allaocted data includes int size for number of schedules 
+        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size); 
+
+        watering_ret->data_size = data_size;
+
+        if (data_size == sizeof(uint32_t))
+        {
+            goto END;
+        }
+
+        status = sf_watering_get_schedule_list((uint8_t*)(watering_ret->data), watering_ret->data_size); 
+
+        
+
         if (status != SF_OK) {
             ESP_LOGE(TAG, "Failed to get schedule list");
-        }
-        int data_size = 0;
-        memcpy(&data_size, list, sizeof(int));
 
-        //allaocted data includes int size for number of schedules
-        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size + sizeof(int)); 
+            watering_ret->data_size = SF_FAIL; // Mark error to app. 
+        }
+
+END:
         watering_ret->cmd = watering_cmd->cmd;
-        watering_ret->data_size = data_size;//the data size field does not include the int for number of schedules
-        memcpy(watering_ret->data, list + sizeof(int), data_size);
-        free(list);
 
         break;
 
