@@ -1,3 +1,4 @@
+import time
 from sf_watering_mqtt_client import sf_mqtt_watering_client
 
 
@@ -30,7 +31,6 @@ BROKER_ADDRESS = "localhost"
 BROKER_PORT = 1883
 BROKER_USERNAME = "user"    
 BROKER_PASSWORD = "password" 
-TOPIC = "sf_watering/schedule"
 
 # Initialize MQTT Client
 mqtt_client = sf_mqtt_watering_client(
@@ -38,9 +38,7 @@ mqtt_client = sf_mqtt_watering_client(
     BROKER_PORT, 
     BROKER_USERNAME, 
     BROKER_PASSWORD, 
-    TOPIC
 )
-
 
 def pre_run():
     print_title()
@@ -58,7 +56,7 @@ def post_run():
 def test_get_schedules():
     mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area")
     mqtt_client.get_schedules()
-
+    time.sleep(10)
 
 
 def main():
