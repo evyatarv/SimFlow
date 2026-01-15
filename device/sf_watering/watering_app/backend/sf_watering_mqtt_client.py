@@ -109,5 +109,13 @@ class sf_mqtt_watering_client:
         my_buffer.extend(struct.pack('<I',1))
         self._publish_msg(my_buffer)
 
+    def remove_schedule(self, schedule_id:int):
+        my_buffer = bytearray()
+        my_buffer.append(SF_WATERING_REMOVE_SCHEDULE)
+        my_buffer.extend(struct.pack('<I',4)) 
+        my_buffer.extend(struct.pack('<I',schedule_id))
+        self._publish_msg(my_buffer)
+
+
     def unsubscribe(self):
         return

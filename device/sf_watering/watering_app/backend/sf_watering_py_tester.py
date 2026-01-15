@@ -54,10 +54,20 @@ def post_run():
 
 
 def test_get_schedules():
-    mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area")
+    mqtt_client.send_new_schedule("* 23 16 * * *", "* 23 18 * * *", "Test Area1")
+    time.sleep(1)
+    mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
+    time.sleep(1)
+    mqtt_client.send_new_schedule("* 23 18 * * *", "* 23 18 * * *", "Test Area3")
+    time.sleep(1)
+    mqtt_client.get_schedules()
+    time.sleep(1)
+    mqtt_client.remove_schedule(1)
+    time.sleep(1)
+    mqtt_client.remove_schedule(2)
+    time.sleep(1)
     mqtt_client.get_schedules()
     time.sleep(10)
-
 
 def main():
     pre_run(); 
