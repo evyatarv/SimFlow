@@ -120,15 +120,24 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
     
     case SF_WATERING_REMOVE_SCHEDULER:
         status = SF_FAIL; 
-        if ( watering_cmd->data_size != sizeof(int) ) 
+        uint32_t id  = 0;
+        
+        do
         {
-            ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than int =%d", (int)watering_cmd->data_size);
-            return;
-        }
-       int id  = (int) *(watering_cmd->data);
-       status = sf_watering_remove_schdule(id);
-       SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to remove schedule 0x%x",id);
-       ESP_LOGI(TAG, "Removed Schedule ID: 0x%x", id);
+            // check cmd format 
+            if ( watering_cmd->data_size != sizeof(uint32_t)) 
+            {
+                ESP_LOGE(TAG, "SF_WATERING_REMOVE_SCHEDULER: data size bigger than: %d", (int)watering_cmd->data_size);
+                break;
+            }
+        
+            id  = ((uint32_t*)watering_cmd->data)[0];
+
+            status = sf_watering_remove_schdule(id);
+            SF_CHECK_EXP_NO_RETURN_STATUS(ESP_LOGI, TAG, status != SF_OK, "Removed Schedule ID: 0x%lu end with status: %d", id, status)
+
+        }while(0);
+
 
         // update ret for publish
         watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + sizeof(uint32_t)); 
@@ -148,30 +157,35 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         status = SF_FAIL;
         uint32_t data_size = 0;
 
-        // buffer structure [CMD][data_size][num_of_elements|sche1|sche2|...]
-
-        data_size += sf_watering_get_schedules_data_size();
-        data_size += sizeof(uint32_t); 
-        
-        //allaocted data includes int size for number of schedules 
-        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size); 
-        SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
-
-        watering_ret->data_size = data_size;
-
-        if (data_size == sizeof(uint32_t))
+        do
         {
-            goto END;
-        }
+            // buffer structure [CMD][data_size][num_of_elements|sche1|sche2|...]
+            data_size += sf_watering_get_schedules_data_size();
+            data_size += sizeof(uint32_t); 
+            
+            //allaocted data includes int size for number of schedules 
+            watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size); 
+            SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
 
-        status = sf_watering_get_schedule_list((uint8_t*)&(watering_ret->data), watering_ret->data_size); 
-        if (status != SF_OK) {
-            ESP_LOGE(TAG, "Failed to get schedule list");
+            watering_ret->data_size = data_size;
 
-            watering_ret->data_size = SF_FAIL; // Mark error to app. 
-        }
+            // if list is empty 
+            if (data_size == sizeof(uint32_t))
+            {
+                break;
+            }
 
-END:
+            status = sf_watering_get_schedule_list((uint8_t*)&(watering_ret->data), watering_ret->data_size); 
+            if (status != SF_OK) 
+            {
+                ESP_LOGE(TAG, "Failed to get schedule list");
+                watering_ret->data_size = SF_FAIL; // Mark error to app. 
+                break;
+            }
+
+        }while(0);
+        
+
         watering_ret->cmd = watering_cmd->cmd;
 
         break;
@@ -191,8 +205,6 @@ END:
         free(watering_ret); 
         watering_ret = NULL; 
     }
-
-    
 }
 
 static void sf_watering_hi_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)

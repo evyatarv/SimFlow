@@ -163,7 +163,7 @@ FAIL:
 }
 
 // Removes a watering schedule by ID
-sf_err_t sf_watering_remove_schdule(int id)
+sf_err_t sf_watering_remove_schdule(uint32_t id)
 {
     sf_err_t status = SF_FAIL;
 
@@ -171,7 +171,6 @@ sf_err_t sf_watering_remove_schdule(int id)
     sf_watering_scheduler_t* curr = watering_jobs_data.watering_jobs_head; 
     sf_watering_scheduler_t* prev = NULL;
 
-    ESP_LOGI(TAG, "sf_watering_remove_schdule curr = %d ", id);
     // Traverse the list to find the schedule with the given ID
     while (curr != NULL)
     {
@@ -181,6 +180,7 @@ sf_err_t sf_watering_remove_schdule(int id)
             if (prev != NULL)
             {
                 prev->next_schedule = curr->next_schedule;
+                curr->next_schedule = NULL;
             }
             else
             {
@@ -196,6 +196,7 @@ sf_err_t sf_watering_remove_schdule(int id)
         prev = curr; 
         curr = curr->next_schedule;
     }
+    
     if (status == SF_OK)
     {
         watering_jobs_data.num_of_schedules--; //TODO cant be less than 0?
