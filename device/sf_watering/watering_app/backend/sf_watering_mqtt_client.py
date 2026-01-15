@@ -19,13 +19,15 @@ SF_WATERING_REMOVE_SCHEDULE = 2
 SF_WATERING_GET_SCHEDULES   = 3
 
 
+
 class sf_mqtt_watering_client:
     _broker_address:str
     _broker_port:str
     _broker_username:str
     _broker_pass:str
     _client: mqtt_client.Client
-    _topic_watering_status = "sf_watering/schedule"
+    _topic_watering_schedule = "sf_watering/schedule"
+    _topic_watering_status = "sf_watering/watering_status"
 
     @staticmethod
     def _on_connect(client, userdata, flags, rc):
@@ -59,26 +61,26 @@ class sf_mqtt_watering_client:
         logging.info("Reconnect failed after %s attempts. Exiting...", reconnect_count)
 
     def _publish_msg(self, msg:bytearray):
-        result = self._client.publish(self._topic_watering_status, msg)
+        result = self._client.publish(self._topic_watering_schedule, msg)
         status = result[0]
         if status == 0:
-            print(f"Send `{msg}` to topic `{self._topic_watering_status}`")
+            print(f"Send `{msg}` to topic `{self._topic_watering_schedule}`")
         else:
-            print(f"Failed to send message to topic {self._topic_watering_status}")
+            print(f"Failed to send message to topic {self._topic_watering_schedule}")
             
-    def __init__(self, broker_addr, broker_port, broker_usrname, broker_pass, topic_watering_status):
+    def __init__(self, broker_addr, broker_port, broker_usrname, broker_pass):
         self._broker_address = broker_addr
         self._broker_port = broker_port
         self._broker_username = broker_usrname
         self._broker_pass = broker_pass
-        self._topic_watering_status = topic_watering_status
         client_id = f'publish-{random.randint(0, 1000)}'
         self._client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, client_id)
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.connect(self._broker_address, self._broker_port)
-        #self._client.subscribe(self._topic_watering_status)
         self._client.on_message = self._on_message
+        self._client.subscribe(self._topic_watering_status)
+
 
     def start_client(self):
         self._client.loop_start()
@@ -99,14 +101,12 @@ class sf_mqtt_watering_client:
         my_buffer.extend(struct.pack('<B',area_len))
         my_buffer.extend(area.encode("utf-8"))
         my_buffer.append(0)
-        print(my_buffer)
         self._publish_msg(my_buffer)
 
     def get_schedules(self):
         my_buffer = bytearray()
         my_buffer.append(SF_WATERING_GET_SCHEDULES)
         my_buffer.extend(struct.pack('<I',1))
-        print(my_buffer)
         self._publish_msg(my_buffer)
 
     def unsubscribe(self):

@@ -114,7 +114,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 
         watering_ret->cmd = watering_cmd->cmd;
         watering_ret->data_size = sizeof(uint32_t);
-        memcpy(watering_ret->data, &schedule_id, watering_ret->data_size);
+        memcpy(&watering_ret->data, &schedule_id, watering_ret->data_size);
 
         break;
     
@@ -155,6 +155,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         
         //allaocted data includes int size for number of schedules 
         watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size); 
+        SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
 
         watering_ret->data_size = data_size;
 
@@ -163,10 +164,7 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
             goto END;
         }
 
-        status = sf_watering_get_schedule_list((uint8_t*)(watering_ret->data), watering_ret->data_size); 
-
-        
-
+        status = sf_watering_get_schedule_list((uint8_t*)&(watering_ret->data), watering_ret->data_size); 
         if (status != SF_OK) {
             ESP_LOGE(TAG, "Failed to get schedule list");
 
