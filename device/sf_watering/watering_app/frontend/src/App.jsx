@@ -44,6 +44,35 @@ const hardwareApi = {
       console.error("API Error:", error);
       throw error;
     }
+  },
+  deleteSchedule: async (scheduleId) => {
+    const API_URL = `http://localhost:5000/api/schedule/${scheduleId}`;
+    try {
+      const response = await fetch(API_URL, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error(`Delete failed: ${response.statusText}`);
+      return await response.json();
+    } catch (error) {
+      console.error("API Error:", error);
+      throw error;
+    }
+  },
+  getSchedules: async () => {
+    const API_URL = "http://localhost:5000/api/schedules";
+    try {
+      const response = await fetch(API_URL, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error(`Failed to fetch schedules: ${response.statusText}`);
+      const data = await response.json();
+      return data.schedules || [];
+    } catch (error) {
+      console.error("API Error:", error);
+      return [];
+    }
   }
 };
 
@@ -58,12 +87,34 @@ const useWateringSystem = (initialSchedules) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load saved schedules from backend on app startup
+  useEffect(() => {
+    const loadSchedules = async () => {
+      try {
+        const savedSchedules = await hardwareApi.getSchedules();
+        if (savedSchedules.length > 0) {
+          setSchedules(savedSchedules);
+          console.log('Loaded schedules from backend:', savedSchedules);
+        }
+      } catch (error) {
+        console.error('Failed to load schedules:', error);
+      }
+    };
+    loadSchedules();
+  }, []);
+
   const addSchedule = useCallback(async (newScheduleData) => {
     const sortedDays = [...newScheduleData.days].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
     const payload = { ...newScheduleData, days: sortedDays };
     try {
       const responseData = await hardwareApi.createSchedule(payload);
-      setSchedules(prev => [...prev, responseData]);
+      if (responseData.status === 'error') {
+        alert(`Schedule creation failed: ${responseData.message}`);
+        return false;
+      }
+      // Use hardware ID from response instead of generating one
+      const scheduleWithId = { ...responseData, id: responseData.id };
+      setSchedules(prev => [...prev, scheduleWithId]);
       return true;
     } catch (error) {
       alert("Failed to connect to SimFlow Middleware. Is backend.py running?");
@@ -71,7 +122,14 @@ const useWateringSystem = (initialSchedules) => {
     }
   }, []);
 
-  const deleteSchedule = useCallback((id) => setSchedules(prev => prev.filter(s => s.id !== id)), []);
+  const deleteSchedule = useCallback(async (id) => {
+    try {
+      await hardwareApi.deleteSchedule(id);
+      setSchedules(prev => prev.filter(s => s.id !== id));
+    } catch (error) {
+      alert(`Failed to delete schedule: ${error.message}`);
+    }
+  }, []);
   const toggleSimulation = useCallback(() => setSimulatingActive(prev => !prev), []);
 
   const activeSchedule = useMemo(() => {

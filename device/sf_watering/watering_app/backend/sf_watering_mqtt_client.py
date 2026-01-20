@@ -6,6 +6,7 @@ import random
 import struct
 import time
 import logging
+import threading
 from paho.mqtt import client as mqtt_client
 
 FIRST_RECONNECT_DELAY = 1
@@ -29,18 +30,26 @@ class sf_mqtt_watering_client:
     _topic_watering_schedule = "sf_watering/schedule"
     _topic_watering_status = "sf_watering/watering_status"
 
-    @staticmethod
-    def _on_connect(client, userdata, flags, rc):
+    def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             print("Connected to MQTT Broker!")
         else:
             print("Failed to connect, return code %d\n", rc)
 
-    @staticmethod
-    def _on_message(client, userdata, msg):
+    def _on_message(self, client, userdata, msg):
         my_buffer = bytearray()
         my_buffer.extend(msg.payload)
         print(f"Received `{my_buffer}` from `{msg.topic}` topic")
+        
+        # Extract schedule ID from response (bytes 1-4 contain the ID)
+        if len(my_buffer) >= 5:
+            try:
+                schedule_id = struct.unpack('<I', my_buffer[-4:])[0]
+                self._last_response_id = schedule_id
+                self._response_event.set()  # Signal that response arrived
+                print(f"Extracted schedule ID: {schedule_id}")
+            except Exception as e:
+                print(f"Error parsing response: {e}")
     
     @staticmethod
     def _on_disconnect(client, userdata, rc):
@@ -73,10 +82,16 @@ class sf_mqtt_watering_client:
         self._broker_port = broker_port
         self._broker_username = broker_usrname
         self._broker_pass = broker_pass
+        
+        # Response tracking for async operations
+        self._response_event = threading.Event()
+        self._last_response_id = None
+        
         client_id = f'publish-{random.randint(0, 1000)}'
         self._client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, client_id)
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
+        self._client.user_data_set(self)  # Pass self as userdata
         self._client.connect(self._broker_address, self._broker_port)
         self._client.on_message = self._on_message
         self._client.subscribe(self._topic_watering_status)
@@ -101,7 +116,18 @@ class sf_mqtt_watering_client:
         my_buffer.extend(struct.pack('<B',area_len))
         my_buffer.extend(area.encode("utf-8"))
         my_buffer.append(0)
+        
+        # Clear previous response and publish
+        self._response_event.clear()
+        self._last_response_id = None
         self._publish_msg(my_buffer)
+        
+        # Wait for hardware response (timeout after 3 seconds)
+        if self._response_event.wait(timeout=3):
+            return self._last_response_id
+        else:
+            print("Timeout waiting for schedule ID from hardware")
+            return -1
 
     def get_schedules(self):
         my_buffer = bytearray()
@@ -114,7 +140,19 @@ class sf_mqtt_watering_client:
         my_buffer.append(SF_WATERING_REMOVE_SCHEDULE)
         my_buffer.extend(struct.pack('<I',4)) 
         my_buffer.extend(struct.pack('<I',schedule_id))
+        
+        # Clear previous response and publish
+        self._response_event.clear()
+        self._last_response_id = None
         self._publish_msg(my_buffer)
+        
+        # Wait for hardware response (timeout after 2 seconds)
+        if self._response_event.wait(timeout=2):
+            # Return 0 on success (hardware confirmed)
+            return 0
+        else:
+            print(f"Timeout waiting for remove confirmation for schedule ID {schedule_id}")
+            return -1
 
 
     def unsubscribe(self):

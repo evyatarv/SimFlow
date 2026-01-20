@@ -1,0 +1,28 @@
+{
+  "schedules": [
+    {
+      "id": null,
+      "days": [
+        "SUN"
+      ],
+      "time": "18:00",
+      "duration": 61,
+      "area": "Flower Bed",
+      "start_cron": "* 0 18 * * 0",
+      "stop_cron": "* 1 19 * * 0"
+    },
+    {
+      "id": null,
+      "days": [
+        "SUN",
+        "WED",
+        "FRI"
+      ],
+      "time": "20:00",
+      "duration": 70,
+      "area": "Veg Patch",
+      "start_cron": "* 0 20 * * 0,3,5",
+      "stop_cron": "* 10 21 * * 0,3,5"
+    }
+  ]
+}
