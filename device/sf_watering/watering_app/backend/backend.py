@@ -15,7 +15,6 @@ BROKER_ADDRESS = "localhost"
 BROKER_PORT = 1883
 BROKER_USERNAME = "user"    
 BROKER_PASSWORD = "password" 
-TOPIC = "sf_watering/schedule"
 SCHEDULES_FILE = "schedules.json"
 
 # Initialize MQTT Client
@@ -96,7 +95,7 @@ def create_schedule():
         area = data.get('area', 'General')
         start_cron, stop_cron = convert_to_cron(time_str, duration, days)
         print(f" sending to HW -> Start: '{start_cron}', Stop: '{stop_cron}', Area: '{area}'")
-        hw_id = mqtt_client.send_new_schedule(start_cron, stop_cron, area)
+        hw_id, data = mqtt_client.send_new_schedule(start_cron, stop_cron, area)
         
         # Check if hardware returned an error (-1)
         if hw_id == -1:
