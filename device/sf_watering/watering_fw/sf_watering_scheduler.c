@@ -201,6 +201,9 @@ sf_err_t sf_watering_remove_schdule(uint32_t id)
     {
         watering_jobs_data.num_of_schedules--; //TODO cant be less than 0?
     }
+
+    ESP_LOGI(TAG, "Remove done: num of schedules: %lu", watering_jobs_data.num_of_schedules);
+
     return status;
 }
 

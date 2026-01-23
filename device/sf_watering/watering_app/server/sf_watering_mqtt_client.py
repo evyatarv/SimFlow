@@ -14,7 +14,7 @@ RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
 MAX_RECONNECT_DELAY = 60
 MIN_SF_WATERING_RESPONS = 9
-SF_HW_TIMEOUT = 5
+SF_HW_TIMEOUT = 15
 
 
 SF_WATERING_ADD_SCHEDULE    = 1
@@ -130,12 +130,14 @@ class sf_mqtt_watering_client:
             return self._last_response, self._last_response_data
         else:
             print("Timeout waiting for response from hardware")
-            return -1
+            return -1, None
 
     def get_schedules(self):
         my_buffer = bytearray()
         my_buffer.append(SF_WATERING_GET_SCHEDULES)
         my_buffer.extend(struct.pack('<I',1))
+        self._response_event.clear()
+        self._last_response = None
         self._publish_msg(my_buffer)
 
          # Wait for hardware response 
@@ -143,7 +145,7 @@ class sf_mqtt_watering_client:
             return self._last_response, self._last_response_data
         else:
             print("Timeout waiting for response from hardware")
-            return -1
+            return -1, None
 
     def remove_schedule(self, schedule_id:int):
         my_buffer = bytearray()
@@ -161,7 +163,7 @@ class sf_mqtt_watering_client:
             return self._last_response, self._last_response_data
         else:
             print("Timeout waiting for response from hardware")
-            return -1
+            return -1, None
 
 
     def unsubscribe(self):
