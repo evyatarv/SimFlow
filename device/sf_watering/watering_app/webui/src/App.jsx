@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { 
-  Droplets, Plus, Clock, Trash2, List, X, History, CheckCircle2, AlertCircle, Activity, 
+  Droplets, Plus, Clock, Trash2, List, X, CheckCircle2, Activity, 
   BarChart3, Sun, Moon, Sunrise, Sunset, MoreHorizontal, MapPin, Calendar, Loader2 
 } from 'lucide-react'; 
 

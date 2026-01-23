@@ -1,9 +1,11 @@
 build/
 .vscode/
+.idea/
+.claude/
 .devcontainer/
 sdkconfig
 sdkconfig.old
-device/sf_watering/watering_app/frontend/dist/
-device/sf_watering/watering_app/frontend/node_modules/
-device/sf_watering/watering_app/backend/__pycache__/
-device/sf_watering/watering_app/backend/schedules.json
+device/sf_watering/watering_app/webui/dist/
+device/sf_watering/watering_app/webui/node_modules/
+device/sf_watering/watering_app/server/__pycache__/
+device/sf_watering/watering_app/server/schedules.json
