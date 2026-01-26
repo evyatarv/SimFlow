@@ -1,8 +1,8 @@
 # Pytest commands cheat sheet for SF Watering tests
 
 ## Installation
-# Install test dependencies in addition to main requirements:
-pip install -r requirements.txt -r requirements-test.txt
+# Install test dependencies:
+pip install -r requirements-test.txt
 
 ## Running Tests
 
