@@ -1,0 +1,59 @@
+name: SIM-FLOW FW Build CI
+
+# Control when the workflow runs
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        # Define the ESP-IDF version and target chips you want to build for
+        # It's better to pin a version (e.g., release-v5.1) rather than 'latest'
+        idf_ver: ["release-v5.4.2"]
+        idf_target: ["esp32", "esp32s3"]
+
+    # Use the official Espressif Docker image
+    container: espressif/idf:${{ matrix.idf_ver }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive' # Required if you use git submodules for components
+
+      - name: Set up Build Directory
+        run: |
+          # Clean build directory if it exists to ensure a fresh build
+          rm -rf build
+
+      - name: Build Project
+        shell: bash
+        run: |
+          # Source the IDF environment (already installed in the container)
+          . $IDF_PATH/export.sh
+          
+          # Set the target chip
+          idf.py set-target ${{ matrix.idf_target }}
+          
+          # Run the build
+          idf.py build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.idf_target }}-${{ github.sha }}
+          path: |
+            build/*.bin
+            build/partition_table/partition-table.bin
+            build/bootloader/bootloader.bin
+            build/*.elf
+            build/sdkconfig
+          retention-days: 7
