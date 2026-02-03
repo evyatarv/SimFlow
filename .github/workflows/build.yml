@@ -17,7 +17,7 @@ jobs:
       matrix:
         # Define the ESP-IDF version and target chips you want to build for
         # It's better to pin a version (e.g., release-v5.1) rather than 'latest'
-        idf_ver: ["release-v5.4.2"]
+        idf_ver: ["release-v5.4"]
         idf_target: ["esp32", "esp32s3"]
 
     # Use the official Espressif Docker image
