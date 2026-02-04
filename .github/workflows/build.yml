@@ -16,7 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         # Define the ESP-IDF version and target chips you want to build for
-        # It's better to pin a version (e.g., release-v5.1) rather than 'latest'
         idf_ver: ["release-v5.4"]
         idf_target: ["esp32", "esp32s3"]
 
@@ -46,7 +45,28 @@ jobs:
           # Run the build
           idf.py build
 
-      - name: Upload Build Artifacts
+      - name: Merge Binaries for QEMU
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          # QEMU requires a single merged binary representing the flash chip.
+          # We use the project name or generic 'mqtt_app.bin' (adjust if your binary name differs)
+          esptool.py --chip ${{ matrix.idf_target }} merge_bin \
+            -o merged_qemu.bin \
+            --flash_mode dio --flash_size 4MB \
+            0x1000 build/bootloader/bootloader.bin \
+            0x8000 build/partition_table/partition-table.bin \
+            0x10000 build/*.bin
+
+      - name: Upload QEMU Image
+        uses: actions/upload-artifact@v4
+        with:
+          # This name will be used by the test workflow to download the binary
+          name: qemu-binary-${{ matrix.idf_target }}
+          path: merged_qemu.bin
+          retention-days: 1
+
+      - name: Upload Standard Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.idf_target }}-${{ github.sha }}
