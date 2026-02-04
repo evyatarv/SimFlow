@@ -53,9 +53,15 @@ flask run
 ```
 The Flask server will run on `http://localhost:5000`.
 
-**3. Flash the Hardware:**
-The ESP-IDF project is located in `device/sf_watering/firmware`.
+**3. Run the Firmware:**    
 
+For starting guide for ESP-IDF toolchain, flash and montoring HW see [ESD-IDF Starting Guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html).  
+
+The SimFlow devices firmwareis located in `./device/`.  
+For example: sf_watering device will loacted in `./device/sf_watering/firmware`.  
+  
+   
+  
 ### Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.
