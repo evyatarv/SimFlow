@@ -50,16 +50,16 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           
-          # We specify the output to be in the current working directory (root)
-          # so the subsequent upload step can find it easily.
-          idf.py merge-bin --output ./merged_qemu.bin --fill-flash-size 4MB
+          # We specify the output name. idf.py merge-bin puts this in the 'build' directory by default.
+          idf.py merge-bin --output merged_qemu.bin --fill-flash-size 4MB
 
       - name: Upload QEMU Image
         uses: actions/upload-artifact@v4
         with:
           # This name will be used by the test workflow to download the binary
           name: qemu-binary-${{ matrix.idf_target }}
-          path: merged_qemu.bin
+          # Explicitly pointing to the build directory where the file is created
+          path: build/merged_qemu.bin
           retention-days: 1
 
       - name: Upload Standard Build Artifacts
