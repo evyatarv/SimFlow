@@ -50,13 +50,10 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           
-          # ESP-IDF produces a 'project.bin' usually named after the folder or project name.
-          # Wildcards like build/*.bin fail because they pick up multiple files (storage.bin, etc.)
-          # We search for the specific app binary. 
-          # Alternatively, ESP-IDF provides a 'flash' command that can be used to generate a merged bin:
-          # idf.py merge-bin --output merged_qemu.bin
-          
-          idf.py merge-bin --output merged_qemu.bin --merged-size 4MB
+          # In recent ESP-IDF versions, idf.py merge-bin is the standard way.
+          # The flag for specifying the output size is --flash-size.
+          # We use 4MB as a standard safe size for emulation.
+          idf.py merge-bin --output merged_qemu.bin --flash-size 4MB
 
       - name: Upload QEMU Image
         uses: actions/upload-artifact@v4
