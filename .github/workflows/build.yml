@@ -50,10 +50,9 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           
-          # In ESP-IDF v5.4, the idf.py merge-bin command uses:
-          # --fill-flash-size to pad the output to a specific size
-          # --flash-offset to specify the starting address (usually 0x0)
-          idf.py merge-bin --output merged_qemu.bin --fill-flash-size 4MB
+          # We specify the output to be in the current working directory (root)
+          # so the subsequent upload step can find it easily.
+          idf.py merge-bin --output ./merged_qemu.bin --fill-flash-size 4MB
 
       - name: Upload QEMU Image
         uses: actions/upload-artifact@v4
