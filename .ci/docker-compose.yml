@@ -1,0 +1,42 @@
+  services:
+  # 1. The MQTT Broker
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - ci-net
+
+  # 2. The Firmware (QEMU)
+  esp32-emulated:
+    image: espressif/idf:release-v5.4
+    depends_on:
+      - mqtt-broker
+    volumes:
+      - ./device_bin:/app
+    networks:
+      - ci-net
+    command: >
+      qemu-system-xtensa -nographic 
+      -machine ${TARGET_CHIP:-esp32}
+      -drive file=/app/merged_qemu.bin,if=mtd,format=raw 
+      -net nic,model=open_eth 
+      -net user
+
+  # 3. The Python Test Runner
+  test-runner:
+    build:
+      # Context is still root (..) to reach /tests
+      context: ..
+      dockerfile: tests/Dockerfile.test
+    depends_on:
+      - mqtt-broker
+      - esp32-emulated
+    networks:
+      - ci-net
+    environment:
+      - MQTT_HOST=mqtt-broker
+  networks:
+  ci-net:
+    driver: bridge
