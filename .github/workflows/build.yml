@@ -50,7 +50,7 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           
-          # We specify the output name. idf.py merge-bin puts this in the 'build' directory by default.
+          # idf.py merge-bin puts this in the 'build' directory by default.
           idf.py merge-bin --output merged_qemu.bin --fill-flash-size 4MB
 
       - name: Upload QEMU Image
@@ -73,3 +73,38 @@ jobs:
             build/*.elf
             build/sdkconfig
           retention-days: 7
+
+  test:
+    needs: build # This ensures tests run after the build finishes
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_target: ["esp32", "esp32s3"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create CI directories
+        run: mkdir -p .ci/device_bin
+
+      - name: Download Firmware Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qemu-binary-${{ matrix.idf_target }}
+          path: .ci/device_bin
+
+      - name: Run Docker Compose Tests
+        env:
+          TARGET_CHIP: ${{ matrix.idf_target }}
+        run: |
+          # Run docker-compose from the .ci folder
+          docker-compose -f .ci/docker-compose.yml up --build \
+            --abort-on-container-exit \
+            --exit-code-from test-runner
+
+      - name: Cleanup
+        if: always()
+        run: docker-compose -f .ci/docker-compose.yml down
