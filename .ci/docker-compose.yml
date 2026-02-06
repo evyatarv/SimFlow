@@ -26,17 +26,17 @@ services:
       -net nic,model=open_eth 
       -net user
 
-  #test-runner:
-  #  build:
-  #    context: ..
-  #    dockerfile: tests/Dockerfile.test
-  #  depends_on:
-  #    - mqtt-broker
-  #    - esp32-emulated
-  #  networks:
-  #    - ci-net
-  #  environment:
-  #    - MQTT_HOST=mqtt-broker
+  test-runner:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.test
+    depends_on:
+      - mqtt-broker
+      - esp32-emulated
+    networks:
+      - ci-net
+    environment:
+      - MQTT_HOST=mqtt-broker
 
 networks:
   ci-net:

@@ -75,7 +75,7 @@ jobs:
           retention-days: 7
 
   test:
-    needs: build # This ensures tests run after the build finishes
+    needs: build
     runs-on: ubuntu-latest
     
     strategy:
@@ -100,7 +100,7 @@ jobs:
         env:
           TARGET_CHIP: ${{ matrix.idf_target }}
         run: |
-          # Using 'docker compose' (V2) instead of 'docker-compose' (V1)
+          # Using 'docker compose' (V2) 
           docker compose -f .ci/docker-compose.yml up --build \
             --abort-on-container-exit \
             --exit-code-from test-runner

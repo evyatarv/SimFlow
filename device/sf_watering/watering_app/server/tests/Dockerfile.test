@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+# Copy the specific test requirements file
+COPY requirements-test.txt .
+
+# Install the updated dependency list
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+COPY . .
+
+# Run the test suite
+CMD ["pytest", "test_mqtt_logic.py"]
