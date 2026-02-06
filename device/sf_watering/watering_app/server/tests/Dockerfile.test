@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements-test.txt
 COPY . .
 
 # Run the test suite
-CMD ["pytest", "test_mqtt_logic.py"]
+CMD ["pytest"]
