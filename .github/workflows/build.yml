@@ -100,11 +100,11 @@ jobs:
         env:
           TARGET_CHIP: ${{ matrix.idf_target }}
         run: |
-          # Run docker-compose from the .ci folder
-          docker-compose -f .ci/docker-compose.yml up --build \
+          # Using 'docker compose' (V2) instead of 'docker-compose' (V1)
+          docker compose -f .ci/docker-compose.yml up --build \
             --abort-on-container-exit \
             --exit-code-from test-runner
 
       - name: Cleanup
         if: always()
-        run: docker-compose -f .ci/docker-compose.yml down
+        run: docker compose -f .ci/docker-compose.yml down
