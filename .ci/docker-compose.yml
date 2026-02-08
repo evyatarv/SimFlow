@@ -3,14 +3,15 @@ services:
   mqtt-broker:
     image: eclipse-mosquitto:2.0
     container_name: mqtt-broker
+    ports:
+      - "1883:1883" # Exposes broker to your PC for real device testing
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-      # Updated to match the provided filename
       - ./mqtt_password_file:/mosquitto/config/mqtt_password_file
     networks:
       - ci-net
 
-  # 2. The Firmware (QEMU Emulation)
+  # 2. The Firmware (QEMU Emulation for CI)
   esp32-emulated:
     image: espressif/idf:release-v5.4
     depends_on:
@@ -32,7 +33,6 @@ services:
   test-runner:
     build:
       context: ..
-      # Updated path to match your actual directory structure
       dockerfile: device/sf_watering/watering_app/server/tests/Dockerfile.test
     depends_on:
       - mqtt-broker
@@ -40,7 +40,8 @@ services:
     networks:
       - ci-net
     environment:
-      - MQTT_HOST=mqtt-broker
+      - MQTT_HOST=mqtt-broker # This tells the Python code to use the Docker network
+      - MQTT_PORT=1883
 
 networks:
   ci-net:

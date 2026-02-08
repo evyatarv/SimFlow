@@ -2,6 +2,7 @@
 @file conftest.py
 @brief Pytest configuration and shared fixtures for SF Watering tests.
 """
+import os
 import sys
 from pathlib import Path
 import pytest

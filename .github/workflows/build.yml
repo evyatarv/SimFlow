@@ -96,6 +96,9 @@ jobs:
           name: qemu-binary-${{ matrix.idf_target }}
           path: .ci/device_bin
 
+      - name: Fix Password File Permissions
+        run: chmod 0600 .ci/mqtt_password_file
+
       - name: Run Docker Compose Tests
         env:
           TARGET_CHIP: ${{ matrix.idf_target }}
