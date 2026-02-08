@@ -31,7 +31,7 @@ services:
   test-runner:
     build:
       context: ..
-      dockerfile: tests/Dockerfile.test
+      dockerfile: device/sf_watering/watering_app/server/tests/Dockerfile.test
     depends_on:
       - mqtt-broker
       - esp32-emulated
