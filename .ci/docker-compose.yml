@@ -1,14 +1,15 @@
-version: '3.8'
-
 services:
+  # 1. The MQTT Broker
   mqtt-broker:
     image: eclipse-mosquitto:2.0
     container_name: mqtt-broker
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./password_file:/mosquitto/config/mqtt_password_file
     networks:
       - ci-net
 
+  # 2. The Firmware (QEMU Emulation)
   esp32-emulated:
     image: espressif/idf:release-v5.4
     depends_on:
@@ -26,10 +27,11 @@ services:
       -net nic,model=open_eth 
       -net user
 
+  # 3. The Python Test Runner
   test-runner:
     build:
       context: ..
-      dockerfile: device/sf_watering/watering_app/server/tests/Dockerfile.test
+      dockerfile: tests/Dockerfile.test
     depends_on:
       - mqtt-broker
       - esp32-emulated
