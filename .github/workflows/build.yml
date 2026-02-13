@@ -28,16 +28,7 @@ jobs:
           submodules: 'recursive' # Required if you use git submodules for components
 
       - name: Build Project
-        shell: bash
-        run: |
-          # Source the IDF environment (already installed in the container)
-          . $IDF_PATH/export.sh
-          
-          # Set the target chip
-          idf.py set-target ${{ matrix.hw_device }}
-          
-          # Run the build
-          idf.py -DSDKCONFIG=${{ matrix.sf_build_targat }} build
+        run: make fw-build-emulation IDF_TARGET=${{ matrix.hw_device }} NO_DOCKER=1
 
       - name: Merge Binaries for QEMU
         shell: bash

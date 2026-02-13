@@ -11,10 +11,15 @@ IDF_VER       ?= release-v5.4
 IDF_IMAGE     := espressif/idf:$(IDF_VER)
 IDF_TARGET    ?= esp32
 
+# Set NO_DOCKER=1 when running inside the IDF container (e.g. CI)
+ifdef NO_DOCKER
+IDF_DOCKER_RUN =
+else
 IDF_DOCKER_RUN = docker run --rm \
 	-v $(CURDIR):/project \
 	-w /project \
 	$(IDF_IMAGE)
+endif
 
 # Build firmware for a specific target
 # Usage: make fw-build IDF_TARGET=esp32
