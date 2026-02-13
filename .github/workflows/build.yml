@@ -15,10 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Define the ESP-IDF version and target chips you want to build for
         idf_ver: ["release-v5.4"]
         hw_device: ["esp32", "esp32s3"]
-        sf_build_targat: ["sdkconfig_ci"]
 
     # Use the official Espressif Docker image
     container: espressif/idf:${{ matrix.idf_ver }}
@@ -28,11 +26,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'recursive' # Required if you use git submodules for components
-
-      - name: Set up Build Directory
-        run: |
-          # Clean build directory if it exists to ensure a fresh build
-          rm -rf build
 
       - name: Build Project
         shell: bash
@@ -44,7 +37,7 @@ jobs:
           idf.py set-target ${{ matrix.hw_device }}
           
           # Run the build
-          idf.py -DSDKCONFIG=${{ matrix.sf_build_targat }} -DSF_EMULATION_BUILD=1 build
+          idf.py -DSDKCONFIG=${{ matrix.sf_build_targat }} build
 
       - name: Merge Binaries for QEMU
         shell: bash
