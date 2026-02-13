@@ -1,7 +1,7 @@
 #include "sf_device.h"
 #include "sf_gpio.h"
-#include "sf_wifi.h"
 #include "sf_time.h"
+
 #include "sf_watering_scheduler.h"
 #include "sf_watering_hi.h"
 #include "cron.h"
@@ -18,6 +18,14 @@
 
 #include "esp_vfs.h"
 
+#ifdef CONFIG_SIM_FLOW_EMULATION_BUILD
+#include "sf_eth.h"
+#else
+#include "sf_wifi.h"   
+#endif
+
+
+
 static const char* TAG = "SF_WATTERING";
 
 typedef struct sf_device_sts
@@ -30,11 +38,22 @@ typedef struct sf_device_sts
             unsigned int reserved: 29;
         };
         unsigned int dev_cfg;
-    };
+    };          
 } sf_device_sts_t;
 
 sf_device_sts_t g_device_sts = {0};
 
+static sf_err_t init_network(void)
+{
+    sf_err_t status = SF_FAIL; 
+
+#ifdef CONFIG_SIM_FLOW_EMULATION_BUILD
+    status = sf_eth_init();
+#else
+    status = sf_wifi_init();
+#endif
+    return status;
+}
 
 sf_err_t init_device(sf_device_cfg_t dev_cfg)
 {
@@ -48,7 +67,7 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
       ret = nvs_flash_init();
     }
 
-    if (sf_wifi_init())
+    if (init_network())
         goto FAIL;  
     g_device_sts.device_wifi_sts = 0x1; // device wifi initialized
 

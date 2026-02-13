@@ -69,3 +69,13 @@ menu "SIM FLOW Host Interface"
             host port.
 
 endmenu
+
+menu "SIM BUILD"
+
+    config SIM_FLOW_EMULATION_BUILD
+        bool "Emulation build flag"
+        default n
+        help
+            If enabled, build project for emulation.
+
+endmenu
