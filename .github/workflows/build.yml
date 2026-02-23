@@ -44,7 +44,7 @@ jobs:
           idf.py set-target ${{ matrix.hw_device }}
           
           # Run the build
-          idf.py -DSDKCONFIG=${{ matrix.sf_build_targat }} build
+          idf.py -DSDKCONFIG=${{ matrix.sf_build_targat }} -DSF_EMULATION_BUILD=1 build
 
       - name: Merge Binaries for QEMU
         shell: bash
