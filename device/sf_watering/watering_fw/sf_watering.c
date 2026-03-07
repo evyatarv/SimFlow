@@ -106,13 +106,13 @@ sf_err_t device_start ()
 
     if(stat(host_filename1, &info) < 0){
         ESP_LOGE(TAG, "Failed to read file stats %d", errno);
-        return 1;
+        return SF_FAIL;
     }
 
     f = fopen(host_filename1, "rb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
-        return 1;
+        return SF_FAIL;
     }
     fgets(line, sizeof(line), f);
     fclose(f);
@@ -131,4 +131,3 @@ sf_err_t device_start ()
 
     return SF_OK;
 }
-
