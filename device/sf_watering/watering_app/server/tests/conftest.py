@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=env_path)
 
-from sf_watering_mqtt_client import sf_mqtt_watering_client
+from sf_watering_mqtt_client import sf_mqtt_watering_client, SF_HW_TIMEOUT
 
 
 TITLE_BANNER = """
@@ -47,6 +47,8 @@ BROKER_PORT     = int(os.getenv("MQTT_PORT", 1883))
 BROKER_USERNAME = "user"
 BROKER_PASSWORD = "password"
 
+_PROBE_DEADLINE = SF_HW_TIMEOUT * 3  # allow multiple retries across SF_HW_TIMEOUT cycles
+
 
 def pytest_configure(config):
     """Runs once before all tests start"""
@@ -71,16 +73,18 @@ def pytest_sessionstart():
     probe.start_client()
     time.sleep(1)
 
-    deadline = time.time() + 90
+    deadline = time.time() + _PROBE_DEADLINE
     while time.time() < deadline:
         res, _ = probe.get_schedules()
         if res > -1:
             break
     else:
-        probe.stop_client()
-        pytest.exit("Firmware did not respond to MQTT within 90s", returncode=1)
+        probe._client.loop_stop()
+        probe._client.disconnect()
+        pytest.exit(f"Firmware did not respond to MQTT within {_PROBE_DEADLINE}s", returncode=1)
 
-    probe.stop_client()
+    probe._client.loop_stop()
+    probe._client.disconnect()
 
 
 @pytest.fixture
@@ -97,10 +101,8 @@ def mqtt_client():
     )
     yield client
     # Cleanup
-    try:
-        client.stop_client()
-    except Exception:
-        pass
+    client._client.loop_stop()
+    client._client.disconnect()
 
 
 @pytest.fixture
