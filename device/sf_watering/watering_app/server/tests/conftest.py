@@ -4,6 +4,8 @@
 """
 import os
 import sys
+import socket
+import time
 from pathlib import Path
 import pytest
 from unittest.mock import patch
@@ -49,6 +51,21 @@ BROKER_ADDRESS  = os.getenv("MQTT_HOST", "localhost")
 BROKER_PORT     = int(os.getenv("MQTT_PORT", 1883))
 BROKER_USERNAME = "user"
 BROKER_PASSWORD = "password"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def wait_for_services():
+    """Wait for MQTT broker to be reachable, then allow firmware time to connect."""
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((BROKER_ADDRESS, BROKER_PORT), timeout=2):
+                break
+        except OSError:
+            time.sleep(2)
+    else:
+        pytest.fail(f"MQTT broker at {BROKER_ADDRESS}:{BROKER_PORT} not reachable after 60s")
+    time.sleep(5)  # Give firmware time to connect after broker is up
 
 
 @pytest.fixture
