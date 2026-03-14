@@ -42,6 +42,7 @@ services:
     networks:
       - ci-net
     working_dir: /app/device/sf_watering/watering_app/server
+    command: pytest tests/
     environment:
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883

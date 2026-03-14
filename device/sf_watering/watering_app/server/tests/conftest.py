@@ -55,17 +55,34 @@ BROKER_PASSWORD = "password"
 
 @pytest.fixture(scope="session", autouse=True)
 def wait_for_services():
-    """Wait for MQTT broker to be reachable, then allow firmware time to connect."""
+    """Wait for MQTT broker, then probe firmware until it responds."""
+    # Step 1: wait for broker TCP port
     deadline = time.time() + 60
     while time.time() < deadline:
         try:
             with socket.create_connection((BROKER_ADDRESS, BROKER_PORT), timeout=2):
                 break
         except OSError:
-            time.sleep(2)
+            time.sleep(1)
     else:
         pytest.fail(f"MQTT broker at {BROKER_ADDRESS}:{BROKER_PORT} not reachable after 60s")
-    time.sleep(5)  # Give firmware time to connect after broker is up
+
+    # Step 2: probe firmware with get_schedules() until it responds
+    probe = sf_mqtt_watering_client(BROKER_ADDRESS, BROKER_PORT, BROKER_USERNAME, BROKER_PASSWORD)
+    probe.start_client()
+    time.sleep(1)  # let MQTT connection establish
+
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        res, _ = probe.get_schedules()
+        if res > -1:
+            break
+        time.sleep(2)
+    else:
+        probe.stop_client()
+        pytest.fail("Firmware did not respond to MQTT within 90s")
+
+    probe.stop_client()
 
 
 @pytest.fixture
