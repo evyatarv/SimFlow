@@ -41,11 +41,6 @@ TITLE_BANNER = """
     """
 
 
-def pytest_configure(config):
-    """Runs once before all tests start"""
-    print("\n" + TITLE_BANNER + "\n")
-
-
 # --- CONFIGURATION ---
 BROKER_ADDRESS  = os.getenv("MQTT_HOST", "localhost")
 BROKER_PORT     = int(os.getenv("MQTT_PORT", 1883))
@@ -53,9 +48,13 @@ BROKER_USERNAME = "user"
 BROKER_PASSWORD = "password"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def wait_for_services():
-    """Wait for MQTT broker, then probe firmware until it responds."""
+def pytest_configure(config):
+    """Runs once before all tests start"""
+    print("\n" + TITLE_BANNER + "\n")
+
+
+def pytest_sessionstart():
+    """Wait for MQTT broker and firmware before any tests run (outside pytest-timeout scope)."""
     # Step 1: wait for broker TCP port
     deadline = time.time() + 60
     while time.time() < deadline:
@@ -65,22 +64,21 @@ def wait_for_services():
         except OSError:
             time.sleep(1)
     else:
-        pytest.fail(f"MQTT broker at {BROKER_ADDRESS}:{BROKER_PORT} not reachable after 60s")
+        pytest.exit(f"MQTT broker at {BROKER_ADDRESS}:{BROKER_PORT} not reachable after 60s", returncode=1)
 
     # Step 2: probe firmware with get_schedules() until it responds
     probe = sf_mqtt_watering_client(BROKER_ADDRESS, BROKER_PORT, BROKER_USERNAME, BROKER_PASSWORD)
     probe.start_client()
-    time.sleep(1)  # let MQTT connection establish
+    time.sleep(1)
 
     deadline = time.time() + 90
     while time.time() < deadline:
         res, _ = probe.get_schedules()
         if res > -1:
             break
-        time.sleep(2)
     else:
         probe.stop_client()
-        pytest.fail("Firmware did not respond to MQTT within 90s")
+        pytest.exit("Firmware did not respond to MQTT within 90s", returncode=1)
 
     probe.stop_client()
 
