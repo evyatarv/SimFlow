@@ -18,15 +18,17 @@ services:
       - mqtt-broker
     volumes:
       - ./device_bin:/app
-    networks:
-      - ci-net
+    # Share mqtt-broker's network namespace so QEMU SLIRP can reach the broker.
+    # QEMU routes 10.0.2.2:1883 -> 127.0.0.1:1883, which resolves to mosquitto
+    # since both processes share the same network stack.
+    network_mode: "service:mqtt-broker"
     environment:
       - TARGET_CHIP=${TARGET_CHIP:-esp32}
     command: >
-      qemu-system-xtensa -nographic 
+      qemu-system-xtensa -nographic
       -machine ${TARGET_CHIP:-esp32}
-      -drive file=/app/merged_qemu.bin,if=mtd,format=raw 
-      -net nic,model=open_eth 
+      -drive file=/app/merged_qemu.bin,if=mtd,format=raw
+      -net nic,model=open_eth
       -net user
 
   # 3. The Python Test Runner
