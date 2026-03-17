@@ -5,7 +5,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+
   workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
 
 jobs:
@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: 'recursive' # Required if you use git submodules for components
 
       - name: Build Project
         run: make fw-build-emulation IDF_TARGET=${{ matrix.hw_device }} NO_DOCKER=1

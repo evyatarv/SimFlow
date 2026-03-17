@@ -9,15 +9,10 @@ import time
 from pathlib import Path
 import pytest
 from unittest.mock import patch
-from dotenv import load_dotenv
 
 # Add parent directory to path so we can import backend modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 1. Try to load variables from a local .env file
-# This file is ignored by Git and only exists on your local machine
-env_path = os.path.join(os.path.dirname(__file__), '.env')
-load_dotenv(dotenv_path=env_path)
 
 from sf_watering_mqtt_client import sf_mqtt_watering_client, SF_HW_TIMEOUT
 
