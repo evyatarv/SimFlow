@@ -2,7 +2,10 @@
 @file conftest.py
 @brief Pytest configuration and shared fixtures for SF Watering tests.
 """
+import os
 import sys
+import socket
+import time
 from pathlib import Path
 import pytest
 from unittest.mock import patch
@@ -10,7 +13,8 @@ from unittest.mock import patch
 # Add parent directory to path so we can import backend modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sf_watering_mqtt_client import sf_mqtt_watering_client
+
+from sf_watering_mqtt_client import sf_mqtt_watering_client, SF_HW_TIMEOUT
 
 
 TITLE_BANNER = """
@@ -32,16 +36,50 @@ TITLE_BANNER = """
     """
 
 
+# --- CONFIGURATION ---
+BROKER_ADDRESS  = os.getenv("MQTT_HOST", "localhost")
+BROKER_PORT     = int(os.getenv("MQTT_PORT", 1883))
+BROKER_USERNAME = "user"
+BROKER_PASSWORD = "password"
+
+_PROBE_DEADLINE = SF_HW_TIMEOUT * 3  # allow multiple retries across SF_HW_TIMEOUT cycles
+
+
 def pytest_configure(config):
     """Runs once before all tests start"""
     print("\n" + TITLE_BANNER + "\n")
 
 
-# --- CONFIGURATION ---
-BROKER_ADDRESS = "localhost"
-BROKER_PORT = 1883
-BROKER_USERNAME = "user"
-BROKER_PASSWORD = "password"
+def pytest_sessionstart():
+    """Wait for MQTT broker and firmware before any tests run (outside pytest-timeout scope)."""
+    # Step 1: wait for broker TCP port
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((BROKER_ADDRESS, BROKER_PORT), timeout=2):
+                break
+        except OSError:
+            time.sleep(1)
+    else:
+        pytest.exit(f"MQTT broker at {BROKER_ADDRESS}:{BROKER_PORT} not reachable after 60s", returncode=1)
+
+    # Step 2: probe firmware with get_schedules() until it responds
+    probe = sf_mqtt_watering_client(BROKER_ADDRESS, BROKER_PORT, BROKER_USERNAME, BROKER_PASSWORD)
+    probe.start_client()
+    time.sleep(1)
+
+    deadline = time.time() + _PROBE_DEADLINE
+    while time.time() < deadline:
+        res, _ = probe.get_schedules()
+        if res > -1:
+            break
+    else:
+        probe._client.loop_stop()
+        probe._client.disconnect()
+        pytest.exit(f"Firmware did not respond to MQTT within {_PROBE_DEADLINE}s", returncode=1)
+
+    probe._client.loop_stop()
+    probe._client.disconnect()
 
 
 @pytest.fixture
@@ -58,10 +96,8 @@ def mqtt_client():
     )
     yield client
     # Cleanup
-    try:
-        client.stop_client()
-    except Exception:
-        pass
+    client._client.loop_stop()
+    client._client.disconnect()
 
 
 @pytest.fixture

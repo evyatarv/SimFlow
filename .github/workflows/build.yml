@@ -1,0 +1,96 @@
+name: SIM-FLOW FW Build CI
+
+# Control when the workflow runs
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v5.4"]
+        hw_device: ["esp32", "esp32s3"]
+
+    # Use the official Espressif Docker image
+    container: espressif/idf:${{ matrix.idf_ver }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Project
+        run: make fw-build-emulation IDF_TARGET=${{ matrix.hw_device }} NO_DOCKER=1
+
+      - name: Merge Binaries for QEMU
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          
+          # idf.py merge-bin puts this in the 'build' directory by default.
+          idf.py merge-bin --output merged_qemu.bin --fill-flash-size 4MB
+
+      - name: Upload QEMU Image
+        uses: actions/upload-artifact@v4
+        with:
+          # This name will be used by the test workflow to download the binary
+          name: qemu-binary-${{ matrix.hw_device }}
+          # Explicitly pointing to the build directory where the file is created
+          path: build/merged_qemu.bin
+          retention-days: 1
+
+      - name: Upload Standard Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.hw_device }}-${{ github.sha }}
+          path: |
+            build/*.bin
+            build/partition_table/partition-table.bin
+            build/bootloader/bootloader.bin
+            build/*.elf
+            build/sdkconfig
+          retention-days: 7
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        hw_device: ["esp32", "esp32s3"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create CI directories
+        run: mkdir -p .ci/device_bin
+
+      - name: Download Firmware Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qemu-binary-${{ matrix.hw_device }}
+          path: .ci/device_bin
+
+      - name: Fix Password File Permissions
+        run: chmod 0600 .ci/mqtt_password_file
+
+      - name: Run Docker Compose Tests
+        env:
+          TARGET_CHIP: ${{ matrix.hw_device }}
+        run: |
+          # Using 'docker compose' (V2) 
+          docker compose -f .ci/docker-compose.yml up --build \
+            --abort-on-container-exit \
+            --exit-code-from test-runner
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f .ci/docker-compose.yml down

@@ -20,6 +20,7 @@ class TestScheduleOperations:
         time.sleep(1)
         # Add assertions based on your expected behavior
         assert res > -1
+
     def test_get_schedules(self, mqtt_client):
         """Test retrieving schedules"""
         mqtt_client.start_client()
@@ -67,26 +68,32 @@ class TestScheduleOperations:
 
         hw_id, data = mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
         time.sleep(1)
+        print(f"1 -->hw_id: {hw_id}, -->data: {data}")  
         assert hw_id > -1
 
         hw_id, data = mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
         time.sleep(1)
+        print(f"2 -->hw_id: {hw_id}, -->data: {data}")  
         assert hw_id > -1
 
         hw_id, data = mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
         time.sleep(1)
+        print(f"3 -->hw_id: {hw_id}, -->data: {data}")  
         assert hw_id > -1
 
         hw_id, data = mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
         time.sleep(1)
+        print(f"4 -->hw_id: {hw_id}, -->data: {data}")  
         assert hw_id > -1
 
         hw_id, data = mqtt_client.send_new_schedule("* 23 17 * * *", "* 23 18 * * *", "Test Area2")
         time.sleep(1)
+        print(f"5 -->hw_id: {hw_id}, -->data: {data}")  
         assert hw_id > -1
 
         num_of_chedules_after, data = mqtt_client.get_schedules()
         time.sleep(1)
+        print(f"-->num_of_chedules_after: {num_of_chedules_after}, -->data: {data}")  
         assert num_of_chedules_after > -1
 
         assert num_of_chedules_after - 5 == num_of_chedules_before

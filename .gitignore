@@ -1,13 +1,24 @@
+# Build:
 build/
 .vscode/
 .idea/
 .claude/
 .devcontainer/
+
+# Configuraion::
 sdkconfig
 sdkconfig.old
+sdkconfig_dev
+esp_idf_project_configuration.json
+sdkconfig_ci.old
+
+# watering App:S
 device/sf_watering/watering_app/webui/dist/
 device/sf_watering/watering_app/webui/node_modules/
 device/sf_watering/watering_app/server/__pycache__/
 device/sf_watering/watering_app/server/tests/__pycache__/
 device/sf_watering/watering_app/server/tests/.pytest_cache/
 device/sf_watering/watering_app/server/schedules.json
+device/sf_watering/watering_app/server/tests/.env
+
+
