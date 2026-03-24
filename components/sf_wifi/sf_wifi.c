@@ -43,6 +43,8 @@ sf_err_t sf_wifi_init(void)
 {
     esp_err_t status = ESP_FAIL;
 
+    ESP_LOGI(TAG, "sf initializing wifi ...");
+
     s_wifi_event_group = xEventGroupCreate();
 
     status = esp_netif_init();

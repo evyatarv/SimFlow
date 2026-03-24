@@ -1,0 +1,52 @@
+services:
+  # 1. The MQTT Broker
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883" # Exposes broker to your PC for real device testing
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mqtt_password_file:/mosquitto/config/mqtt_password_file
+    networks:
+      - ci-net
+
+  # 2. The Firmware (QEMU Emulation for CI)
+  esp32-emulated:
+    image: espressif/idf:release-v5.4
+    depends_on:
+      - mqtt-broker
+    volumes:
+      - ./device_bin:/app
+    # Share mqtt-broker's network namespace so QEMU SLIRP can reach the broker.
+    # QEMU routes 10.0.2.2:1883 -> 127.0.0.1:1883, which resolves to mosquitto
+    # since both processes share the same network stack.
+    network_mode: "service:mqtt-broker"
+    environment:
+      - TARGET_CHIP=${TARGET_CHIP:-esp32}
+    command: >
+      qemu-system-xtensa -nographic
+      -machine ${TARGET_CHIP:-esp32}
+      -drive file=/app/merged_qemu.bin,if=mtd,format=raw -snapshot
+      -net nic,model=open_eth
+      -net user
+
+  # 3. The Python Test Runner
+  test-runner:
+    build:
+      context: ..
+      dockerfile: device/sf_watering/watering_app/server/tests/Dockerfile.test
+    depends_on:
+      - mqtt-broker
+      - esp32-emulated
+    networks:
+      - ci-net
+    working_dir: /app/device/sf_watering/watering_app/server
+    command: pytest tests/
+    environment:
+      - MQTT_HOST=mqtt-broker
+      - MQTT_PORT=1883
+
+networks:
+  ci-net:
+    driver: bridge
