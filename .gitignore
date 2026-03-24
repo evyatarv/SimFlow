@@ -11,3 +11,4 @@ device/sf_watering/watering_app/server/__pycache__/
 device/sf_watering/watering_app/server/tests/__pycache__/
 device/sf_watering/watering_app/server/tests/.pytest_cache/
 device/sf_watering/watering_app/server/schedules.json
+device/sf_watering/watering_app/webui/package-lock.json
