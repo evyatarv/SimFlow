@@ -64,29 +64,36 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         char* watering_schedule = (char*)&watering_cmd->data;
 
         int offset = 0;
-        int crone_exp_size = watering_schedule[offset];
+        int crone_exp_size = 0;
         int area_size = 0;
         char* start_cron_exp = NULL;
         char* stop_cron_exp = NULL;
         char* area_str = NULL;
-        int schedule_id = -1;
-                
+        uint32_t schedule_id = 0;
 
-        // get start cron expretion 
-        offset += 1; 
+        // get server-assigned stable ID
+        memcpy(&schedule_id, watering_schedule + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        ESP_LOGI(TAG, "schedule ID from server: %lu", schedule_id);
+
+        // get start cron expression size
+        crone_exp_size = watering_schedule[offset];
+
+        // get start cron expretion
+        offset += 1;
         start_cron_exp = watering_schedule + offset;
         ESP_LOGI(TAG, "cron start exp. %s size: %d", start_cron_exp, crone_exp_size);
 
-        // get cron stop expretion size 
+        // get cron stop expretion size
         offset += crone_exp_size;
         crone_exp_size = watering_schedule[offset];
 
-        // get stop cron expretion 
+        // get stop cron expretion
         offset += 1;
         stop_cron_exp = watering_schedule + offset;
         ESP_LOGI(TAG, "cron stop exp. %s size: %d", stop_cron_exp, crone_exp_size);
 
-        // get area size 
+        // get area size
         offset += crone_exp_size;
         area_size = watering_schedule[offset];
 
@@ -95,26 +102,23 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         area_str = watering_schedule + offset;
         ESP_LOGI(TAG, "area %s size: %d", area_str, area_size);
 
-
         offset += area_size;
         ESP_LOGI(TAG, "offset %d", offset);
 
-
-        // check cmd format 
+        // check cmd format
         SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_cmd->data_size != offset, "Wrong SF watering HI *new schecdule* command format");
 
-        // add schedule 
-        status = sf_watering_add_schdule(start_cron_exp, stop_cron_exp, area_str, area_size, NULL, 0, &schedule_id);
-        ESP_LOGI(TAG, "New Schedule ID: %d", schedule_id);
+        // add schedule
+        status = sf_watering_add_schdule(schedule_id, start_cron_exp, stop_cron_exp, area_str, area_size, NULL, 0);
         SF_CHECK_EXPECTED_RETURN(ESP_LOGE, TAG, status, SF_FAIL, "Failed to add schedule");
 
-        // update ret
-        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + sizeof(uint32_t)); 
+        // update ret — echo back the server-assigned ID
+        watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + sizeof(uint32_t));
         SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
 
         watering_ret->cmd = watering_cmd->cmd;
         watering_ret->data_size = sizeof(uint32_t);
-        memcpy(&watering_ret->data, &schedule_id, watering_ret->data_size);
+        memcpy(&watering_ret->data, &status, watering_ret->data_size);
 
         break;
     

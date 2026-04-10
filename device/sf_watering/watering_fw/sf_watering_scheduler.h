@@ -45,7 +45,7 @@ sf_watering_scheduler_info_t;
  * @note The function allocates memory for the schedule and user data (if provided).
  *       The caller is responsible for managing the returned schedule ID.
  */
-sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_size, void* data, uint32_t data_size, int* schedule_id);
+sf_err_t sf_watering_add_schdule(uint32_t id, const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_size, void* data, uint32_t data_size);
 
 /**
  * @brief Remove a watering schedule by its unique ID.

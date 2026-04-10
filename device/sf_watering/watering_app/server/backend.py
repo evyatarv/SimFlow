@@ -94,19 +94,26 @@ def create_schedule():
         duration = int(data.get('duration', 0))
         area = data.get('area', 'General')
         start_cron, stop_cron = convert_to_cron(time_str, duration, days)
-        print(f" sending to HW -> Start: '{start_cron}', Stop: '{stop_cron}', Area: '{area}'")
-        hw_id, data = mqtt_client.send_new_schedule(start_cron, stop_cron, area)
-        
-        # Check if hardware returned an error (-1)
-        if hw_id == -1:
+
+        # Generate stable ID on the server side
+        # TODO: this ID is derived from the local JSON file — we need to ensure the JSON is
+        # always in sync with the device's persistent file to avoid ID collisions after reboot
+        schedules = load_schedules()
+        schedule_id = max((s['id'] for s in schedules), default=-1) + 1
+
+        print(f" sending to HW -> ID: {schedule_id}, Start: '{start_cron}', Stop: '{stop_cron}', Area: '{area}'")
+        hw_status, _ = mqtt_client.send_new_schedule(schedule_id, start_cron, stop_cron, area)
+
+        # Check if hardware returned an error
+        if hw_status != 0:
             return jsonify({
                 "status": "error",
                 "message": "Hardware failed to create schedule"
             }), 500
-        
-        # Create schedule object with hardware ID
+
+        # Create schedule object with server-assigned ID
         schedule = {
-            "id": hw_id,
+            "id": schedule_id,
             "days": days,
             "time": time_str,
             "duration": duration,
@@ -116,11 +123,10 @@ def create_schedule():
         }
         
         # Save to file
-        schedules = load_schedules()
         schedules.append(schedule)
         save_schedules(schedules)
-        
-        print(f"Schedule saved with HW ID: {hw_id}")
+
+        print(f"Schedule saved with ID: {schedule_id}")
         return jsonify({
             "status": "success",
             "message": "Schedule sent to hardware and saved",

@@ -92,14 +92,14 @@ void sf_watering_gpio_off_cb(cron_job *job)
 
 
 // Adds a new watering schedule to the linked list
-sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size, int* schedule_id)
+sf_err_t sf_watering_add_schdule(uint32_t id, const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size)
 {
     sf_err_t status = SF_FAIL;
     sf_watering_scheduler_t* new_schedule = 0;
     sf_watering_scheduler_t** watering_jobs_curr = &watering_jobs_data.watering_jobs_head;
 
  
-    if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE || schedule_id == NULL)
+    if (start_cron_exp == NULL || stop_cron_exp == NULL || area == NULL || area_zise > MAX_AREA_SIZE)
     {
         ESP_LOGE(TAG, "wrong param: start_cron_exp:%p stop_cron_exp:%p area: %p area_zise: %u", 
             start_cron_exp, stop_cron_exp, area, area_zise);
@@ -130,9 +130,8 @@ sf_err_t sf_watering_add_schdule(const char* start_cron_exp, const char* stop_cr
     new_schedule->stop_handle = cron_job_create(stop_cron_exp, sf_watering_gpio_off_cb, new_schedule->data);
     SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, new_schedule->stop_handle, FAIL,"fail allocate stop cron job");
 
-    // Use the start cron job's ID as the schedule ID
-    new_schedule->info.id = new_schedule->start_handle->id;
-    *schedule_id = new_schedule->start_handle->id;
+    // Use the server-assigned stable ID
+    new_schedule->info.id = id;
 
     // save new schedule 
     // Insert the new schedule at the end of the linked list
@@ -154,7 +153,6 @@ FAIL:
     if (status != SF_OK)
     {
         sf_wattering_clean_schedule_resourses(new_schedule);
-        *schedule_id = -1; 
     }
     
     watering_jobs_data.num_of_schedules++;
@@ -174,7 +172,7 @@ sf_err_t sf_watering_remove_schdule(uint32_t id)
     // Traverse the list to find the schedule with the given ID
     while (curr != NULL)
     {
-        if (curr->start_handle->id == id)
+        if (curr->info.id == id)
         {
             // Remove the node from the linked list
             if (prev != NULL)
@@ -316,7 +314,7 @@ sf_err_t sf_watering_puse_schedule(int id)
     // Traverse the list to find the schedule with the given ID
     while (curr != NULL)
     {
-        if (curr->start_handle->id == id)
+        if (curr->info.id == id)
         {
             // Unschedule the cron jobs for this schedule
             status = cron_job_unschedule(curr->start_handle);

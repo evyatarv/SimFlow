@@ -102,20 +102,21 @@ class sf_mqtt_watering_client:
     def start_client(self):
         self._client.loop_start()
 
-    def send_new_schedule(self, start_time:str, stop_time:str, area:str):
+    def send_new_schedule(self, schedule_id:int, start_time:str, stop_time:str, area:str):
         start_exp_len = len(start_time) + 1
         stop_exp_len = len(stop_time) + 1
         area_len = len(area) + 1
         my_buffer = bytearray()
         my_buffer.append(SF_WATERING_ADD_SCHEDULE)
-        my_buffer.extend(struct.pack('<I',start_exp_len + stop_exp_len + area_len + 3))
-        my_buffer.extend(struct.pack('<B',start_exp_len))
+        my_buffer.extend(struct.pack('<I', 4 + start_exp_len + stop_exp_len + area_len + 3))
+        my_buffer.extend(struct.pack('<I', schedule_id))
+        my_buffer.extend(struct.pack('<B', start_exp_len))
         my_buffer.extend(start_time.encode("utf-8"))
         my_buffer.append(0)
-        my_buffer.extend(struct.pack('<B',stop_exp_len))
+        my_buffer.extend(struct.pack('<B', stop_exp_len))
         my_buffer.extend(stop_time.encode("utf-8"))
         my_buffer.append(0)
-        my_buffer.extend(struct.pack('<B',area_len))
+        my_buffer.extend(struct.pack('<B', area_len))
         my_buffer.extend(area.encode("utf-8"))
         my_buffer.append(0)
         
