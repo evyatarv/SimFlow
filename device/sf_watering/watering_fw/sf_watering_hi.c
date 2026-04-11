@@ -156,43 +156,40 @@ static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
         break;
     
     case SF_WATERING_GET_SCHEDULERS:
-        
-        ESP_LOGI(TAG, "SF_WATERING_GET_SCHEDULERS "); 
-        status = SF_FAIL;
-        uint32_t data_size = 0;
+    {
+        ESP_LOGI(TAG, "SF_WATERING_GET_SCHEDULERS");
+        uint32_t file_size = 0;
 
         do
         {
-            // buffer structure [CMD][data_size][num_of_elements|sche1|sche2|...]
-            data_size += sf_watering_get_schedules_data_size();
-            data_size += sizeof(uint32_t); 
-            
-            //allaocted data includes int size for number of schedules 
-            watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + data_size); 
-            SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocat ret msg to broker");
-
-            watering_ret->data_size = data_size;
-
-            // if list is empty 
-            if (data_size == sizeof(uint32_t))
+            status = sf_watering_get_file_schedule_list(NULL, &file_size);
+            if (status != SF_OK)
             {
-                break;
+                ESP_LOGE(TAG, "Query schedule list size with status: %d", status);
+                file_size = sizeof(uint32_t);
             }
 
-            status = sf_watering_get_schedule_list((uint8_t*)&(watering_ret->data), watering_ret->data_size); 
-            if (status != SF_OK) 
-            {
-                ESP_LOGE(TAG, "Failed to get schedule list");
-                watering_ret->data_size = SF_FAIL; // Mark error to app. 
-                break;
-            }
+            watering_ret = (sf_watering_hi_cmd_t*)calloc(1, SF_WATERING_HI_CMD_MIN_SIZE + file_size);
+            SF_CHECK_EXPR_RETURN(ESP_LOGE, TAG, watering_ret == NULL, "Failed allocate ret msg to broker");
 
-        }while(0);
+            SF_CHECK_ERR_BREAK(ESP_LOGI, TAG, status, "Query schedule list size with status: %d", status);
+
+            status = sf_watering_get_file_schedule_list((uint8_t*)&watering_ret->data, &file_size);
+            SF_CHECK_ERR_BREAK(ESP_LOGI, TAG, status, "Read schedule list from file ended with status: %d", status);
+
+            watering_ret->data_size = file_size;
+
+        } while (0);
         
+        if (status != SF_OK) 
+        {
+            watering_ret->data_size = sizeof(uint32_t);
+            memcpy(watering_ret->data, &status, sizeof(uint32_t));
+        }
 
         watering_ret->cmd = watering_cmd->cmd;
-
         break;
+    }
 
     default:
         ESP_LOGE(TAG, "Wrong SF watering command not supported");

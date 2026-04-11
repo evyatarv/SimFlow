@@ -63,8 +63,9 @@ sf_err_t sf_file_read(const char* file, uint8_t* buff, uint32_t* size, uint32_t 
     SF_CHECK_EXPR_GOTO(ESP_LOGE, TAG, status != ESP_OK, end, "fail to seek file with error: %d", errno);
 
     *size = (uint32_t)fread(buff, 1, *size, f);
-    status = SF_OK;
 
+    ESP_LOGI(TAG, "Read %lu bytes to file %s", *size, file);
+    status = SF_OK;
 
 
 end:
@@ -104,6 +105,8 @@ sf_err_t sf_file_write(const char* file, uint8_t* buff, uint32_t* size, uint32_t
     SF_CHECK_EXPR_GOTO(ESP_LOGE, TAG, status != ESP_OK, end, "fail to seek file with error: %d", errno);
 
     *size = (uint32_t)fwrite(buff, 1, *size, f);
+
+    ESP_LOGI(TAG, "Wrote %lu bytes to file %s", *size, file);
     status = SF_OK;
 
 end:

@@ -9,6 +9,9 @@ import logging
 import threading
 from paho.mqtt import client as mqtt_client
 
+SCHEDULE_ENTRY_FORMAT = '<I20s32s32s'   # id(4) + area(20) + start_cron(32) + stop_cron(32)
+SCHEDULE_ENTRY_SIZE   = struct.calcsize(SCHEDULE_ENTRY_FORMAT)
+
 FIRST_RECONNECT_DELAY = 1
 RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
@@ -44,7 +47,7 @@ class sf_mqtt_watering_client:
         # Extract schedule ID from response (bytes 1-4 contain the ID)
         if len(my_buffer) >= MIN_SF_WATERING_RESPONS:
             try:
-                hw_res = struct.unpack('<I', my_buffer[5:9])[0]
+                hw_res = struct.unpack('<i', my_buffer[5:9])[0]
                 self._last_response_data =  my_buffer[9:]
                 self._last_response = hw_res
                 self._response_event.set()  # Signal that response arrived
@@ -135,17 +138,36 @@ class sf_mqtt_watering_client:
     def get_schedules(self):
         my_buffer = bytearray()
         my_buffer.append(SF_WATERING_GET_SCHEDULES)
-        my_buffer.extend(struct.pack('<I',1))
+        my_buffer.extend(struct.pack('<I', 1))
         self._response_event.clear()
         self._last_response = None
         self._publish_msg(my_buffer)
 
-         # Wait for hardware response 
-        if self._response_event.wait(timeout=SF_HW_TIMEOUT):
-            return self._last_response, self._last_response_data
-        else:
+        if not self._response_event.wait(timeout=SF_HW_TIMEOUT):
             print("Timeout waiting for response from hardware")
             return -1, None
+
+        num_schedules = self._last_response
+        if num_schedules < 0:
+            print(f"Hardware returned error status: {num_schedules}")
+            return -1, None
+
+        data = self._last_response_data or b''
+        schedules = []
+
+        for i in range(num_schedules):
+            entry = data[i * SCHEDULE_ENTRY_SIZE:(i + 1) * SCHEDULE_ENTRY_SIZE]
+            if len(entry) < SCHEDULE_ENTRY_SIZE:
+                break
+            id_, area, start_cron, stop_cron = struct.unpack(SCHEDULE_ENTRY_FORMAT, entry)
+            schedules.append({
+                'id':         id_,
+                'area':       area.rstrip(b'\x00').decode('utf-8'),
+                'start_cron': start_cron.rstrip(b'\x00').decode('utf-8'),
+                'stop_cron':  stop_cron.rstrip(b'\x00').decode('utf-8'),
+            })
+
+        return num_schedules, schedules
 
     def remove_schedule(self, schedule_id:int):
         my_buffer = bytearray()
