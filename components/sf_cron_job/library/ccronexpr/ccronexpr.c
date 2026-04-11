@@ -920,19 +920,27 @@ time_t cron_next(cron_expr* expr, time_t date) {
 
      ...
      */
-    if (!expr) return CRON_INVALID_INSTANT;
+    if (!expr) 
+        return CRON_INVALID_INSTANT;
+
     struct tm calval;
     memset(&calval, 0, sizeof(struct tm));
     struct tm* calendar = cron_time(&date, &calval);
-    if (!calendar) return CRON_INVALID_INSTANT;
+    if (!calendar) 
+        return CRON_INVALID_INSTANT;
+
     time_t original = cron_mktime(calendar);
-    if (CRON_INVALID_INSTANT == original) return CRON_INVALID_INSTANT;
+    if (CRON_INVALID_INSTANT == original) 
+        return CRON_INVALID_INSTANT;
 
     int res = do_next(expr, calendar, calendar->tm_year);
-    if (0 != res) return CRON_INVALID_INSTANT;
+    if (0 != res) 
+        return CRON_INVALID_INSTANT;
 
     time_t calculated = cron_mktime(calendar);
-    if (CRON_INVALID_INSTANT == calculated) return CRON_INVALID_INSTANT;
+    if (CRON_INVALID_INSTANT == calculated) 
+        return CRON_INVALID_INSTANT;
+        
     if (calculated == original) {
         /* We arrived at the original timestamp - round up to the next whole second and try again... */
         res = add_to_field(calendar, CRON_CF_SECOND, 1);

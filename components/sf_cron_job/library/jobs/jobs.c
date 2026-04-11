@@ -100,7 +100,7 @@ int cron_job_list_remove(int id)
   struct cron_job_node *node = linked_link_state.first, *prev_node = NULL;
   if (xSemaphoreTake(linked_link_state.semaphore, (TickType_t)10) == pdTRUE) 
   {
-    do
+    while (node != NULL)
     {
       if (node->job->id == id)
       {
@@ -123,8 +123,7 @@ int cron_job_list_remove(int id)
         prev_node = node;
         node = node->next;
       }
-
-    } while (node->next);
+    }
     xSemaphoreGive(linked_link_state.semaphore);
   }
   else
