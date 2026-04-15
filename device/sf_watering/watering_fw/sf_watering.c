@@ -123,10 +123,6 @@ sf_err_t device_start ()
     }
     ESP_LOGI(TAG, "Read from file: '%s'", line);
 
-    // Unmount FATFS
-    ESP_LOGI(TAG, "Unmounting FAT filesystem");
-    sf_file_deinit_fs("/sf_fatfs");
-
     sf_watering_start_host_interface();
 
     return SF_OK;
