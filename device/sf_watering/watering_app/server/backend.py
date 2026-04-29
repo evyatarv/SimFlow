@@ -51,7 +51,7 @@ def convert_to_cron(time_str, duration_minutes, days_array):
     stop_h = total_stop_minutes // 60
     stop_m = total_stop_minutes % 60
     start_cron = f"0 {start_m} {start_h} * * {cron_days}"
-    stop_cron  = f"0 {stop_m} {stop_h} * * {cron_days}"
+    stop_cron = f"0 {stop_m} {stop_h} * * {cron_days}"
     return start_cron, stop_cron
 
 # --- API ENDPOINT: GET ALL SCHEDULES ---
