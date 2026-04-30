@@ -250,6 +250,8 @@ FAIL:
 // Adds a new watering schedule to the linked list and persists it to file
 sf_err_t sf_watering_add_schdule(uint32_t id, const char* start_cron_exp, const char* stop_cron_exp, const char* area, uint8_t area_zise, void* data, uint32_t data_size)
 {
+    cron_stop();
+
     sf_err_t status = sf_watering_create_schedule(id, start_cron_exp, stop_cron_exp, area, area_zise, data, data_size);
 
     if (status == SF_OK)
