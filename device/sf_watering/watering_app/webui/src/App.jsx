@@ -28,6 +28,18 @@ const MOCK_HISTORY = [
   { id: 105, day: 'SAT', dayIndex: 6, time: '08:15', liters: 10, status: 'completed' },
 ];
 
+// --- CRON PARSER ---
+const parseCronSchedule = (s) => {
+  const [, sm, sh, , , sDays] = s.start_cron.split(' ');
+  const [, em, eh]            = s.stop_cron.split(' ');
+  const days = sDays === '*' ? [...DAYS] : sDays.split(',').map(d => DAYS[parseInt(d)]);
+  const time = `${String(parseInt(sh)).padStart(2, '0')}:${String(parseInt(sm)).padStart(2, '0')}`;
+  const startMinutes = parseInt(sh) * 60 + parseInt(sm);
+  const stopMinutes  = parseInt(eh) * 60 + parseInt(em);
+  const duration = (stopMinutes - startMinutes + 24 * 60) % (24 * 60);
+  return { ...s, days, time, duration };
+};
+
 // --- API ---
 const hardwareApi = {
   createSchedule: async (data) => {
@@ -68,7 +80,7 @@ const hardwareApi = {
       });
       if (!response.ok) throw new Error(`Failed to fetch schedules: ${response.statusText}`);
       const data = await response.json();
-      return data.schedules || [];
+      return (data.schedules || []).map(parseCronSchedule);
     } catch (error) {
       console.error("API Error:", error);
       return [];
@@ -113,7 +125,7 @@ const useWateringSystem = (initialSchedules) => {
         return false;
       }
       // Use hardware ID from response instead of generating one
-      const scheduleWithId = { ...responseData, id: responseData.id };
+      const scheduleWithId = parseCronSchedule({ ...responseData, id: responseData.id });
       setSchedules(prev => [...prev, scheduleWithId]);
       return true;
     } catch (error) {

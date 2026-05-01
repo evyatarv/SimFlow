@@ -80,6 +80,8 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
         goto FAIL;
     g_device_sts.device_fs_sts = 0x1; // device fs initialized
 
+    sf_watering_load_from_file(SF_WATERING_SCHEDULE_FILE);
+
     g_device_sts.device_init = 0x1; // device initialized
 
     return SF_OK; 
@@ -122,10 +124,6 @@ sf_err_t device_start ()
         *pos = '\0';
     }
     ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-    // Unmount FATFS
-    ESP_LOGI(TAG, "Unmounting FAT filesystem");
-    sf_file_deinit_fs("/sf_fatfs");
 
     sf_watering_start_host_interface();
 

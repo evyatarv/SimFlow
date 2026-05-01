@@ -37,7 +37,11 @@ void app_main(void)
 
     sf_device_cfg_t dev_cfg = {0}; 
 
-    init_device(dev_cfg);
+    if (init_device(dev_cfg))
+    {
+        ESP_LOGE(TAG, "Device initialization failed");
+        return;
+    }
     ESP_LOGI(TAG, "************************ SIM FLOW INIT DONE ************************");
 
     device_start();

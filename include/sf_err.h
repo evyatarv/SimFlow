@@ -33,6 +33,30 @@ typedef int sf_err_t; /*!< Type definition for error codes used in SimFlow. */
         LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
     }
 
+
+/**
+ * @brief Check an error status inside a loop and break out on failure.
+ *
+ * Intended for use inside a loop body. On failure (status != ESP_OK) the macro
+ * logs the message at ESP_LOGE level, sets status to SF_FAIL, and executes
+ * `break` to exit the enclosing loop. On success it logs via LOG_TYPE instead.
+ *
+ * @param LOG_TYPE Logging function used on success (e.g., ESP_LOGI, ESP_LOGD).
+ * @param TAG      Log tag string.
+ * @param status   Variable holding the status; overwritten with SF_FAIL on error.
+ * @param msg      Log message format string.
+ * @param ...      Additional arguments for the format string.
+ */
+#define SF_CHECK_ERR_BREAK(LOG_TYPE, TAG, status, msg, ...) \
+    if ((status) != ESP_OK) { \
+        ESP_LOGE(TAG, msg, ##__VA_ARGS__); \
+        status = SF_FAIL; \
+        break; \
+    } \
+    else { \
+        LOG_TYPE(TAG, msg, ##__VA_ARGS__); \
+    }
+
 /**
  * @brief Macro to check an error condition and jump to a label if the condition is met.
  *
