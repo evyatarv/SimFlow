@@ -138,12 +138,14 @@ int cron_job_schedule(cron_job *job)
   {
     return -1;
   }
-  else
+
+  // Wake the cron task if it's sleeping — a sooner job may have just been added
+  if (state.handle != NULL)
   {
-    return 0;
+    xTaskAbortDelay(state.handle);
   }
 
-  return 0; // WONT RUN
+  return 0;
 }
 
 int cron_job_unschedule(cron_job *job)
@@ -156,6 +158,12 @@ int cron_job_unschedule(cron_job *job)
   else if (job->id >= 0)
   {
     ret = cron_job_list_remove(job->id);
+    // Wake the cron task so it re-evaluates the list immediately
+    // instead of sleeping until the removed job's time
+    if (state.handle != NULL)
+    {
+      xTaskAbortDelay(state.handle);
+    }
   }
   return ret;
 }
@@ -210,7 +218,7 @@ void cron_schedule_job_launcher(void * args){
     vTaskDelete(NULL);
     return;
 }
-
+  
 void cron_schedule_task(void *args)
 {
   time_t now;
@@ -227,7 +235,12 @@ void cron_schedule_task(void *args)
   {
     state.running = 1;
     time(&now);
-    job = cron_job_list_first()->job;
+    struct cron_job_node *head = cron_job_list_first();
+    if (head == NULL)
+    {
+      break;
+    }
+    job = head->job;
     if (job == NULL)
     {
       break;// THIS IS IT!!! THIS WILL 
