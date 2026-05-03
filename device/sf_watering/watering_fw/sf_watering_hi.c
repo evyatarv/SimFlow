@@ -3,17 +3,23 @@
 
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 
 
-
-#define SF_MQTT_NEW_SCHEDULER_TOPIC "sf_watering/schedule"
-#define SF_WATERING_HI_CMD_MIN_SIZE 5
+#define SF_MQTT_NEW_SCHEDULER_TOPIC     "sf_watering/schedule"
+#define SF_WATERING_HI_CMD_MIN_SIZE     5
+#define SF_WATERING_HI_CMD_QUEUE_DEPTH  5
+#define SF_WATERING_HI_WORKER_STACK     8192
+#define SF_WATERING_HI_WORKER_PRIORITY  5
 
 
 // Tag for logging
 static const char* TAG = "SF_WATTERING_HI";
 
-static esp_mqtt_client_handle_t sf_watering_mqtt_lient = NULL; 
+static esp_mqtt_client_handle_t sf_watering_mqtt_lient = NULL;
+static QueueHandle_t            sf_watering_hi_cmd_queue = NULL;
 
 #pragma pack(push, 1)
 typedef struct  sf_watering_hi_cmd
@@ -32,6 +38,22 @@ enum SF_SCHEDULER_CMD
     SF_WATERING_REMOVE_SCHEDULER, 
     SF_WATERING_GET_SCHEDULERS
 };
+
+static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size);
+
+static void sf_watering_hi_worker_task(void* args)
+{
+    sf_watering_hi_cmd_t* cmd = NULL;
+    while (true)
+    {
+        if (xQueueReceive(sf_watering_hi_cmd_queue, &cmd, portMAX_DELAY) == pdTRUE)
+        {
+            sf_watering_hi_cmd_parser(cmd, SF_WATERING_HI_CMD_MIN_SIZE + cmd->data_size);
+            free(cmd);
+            cmd = NULL;
+        }
+    }
+}
 
 static void sf_watering_hi_cmd_parser(void* cmd, size_t data_size)
 {
@@ -236,14 +258,25 @@ static void sf_watering_hi_event_handler(void *handler_args, esp_event_base_t ba
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_DATA:
+    {
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
         ESP_LOGI(TAG, "DATA_SIZE=%d\r\n", event->data_len);
-        //ESP_LOGI(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
 
-        sf_watering_hi_cmd_parser(event->data, event->data_len);
-        
+        sf_watering_hi_cmd_t* cmd_copy = malloc(event->data_len);
+        if (cmd_copy == NULL)
+        {
+            ESP_LOGE(TAG, "MQTT_EVENT_DATA: malloc failed, command dropped");
+            break;
+        }
+        memcpy(cmd_copy, event->data, event->data_len);
+        if (xQueueSend(sf_watering_hi_cmd_queue, &cmd_copy, 0) != pdTRUE)
+        {
+            ESP_LOGE(TAG, "MQTT_EVENT_DATA: queue full, command dropped");
+            free(cmd_copy);
+        }
         break;
+    }
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
         if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) 
@@ -266,6 +299,14 @@ sf_err_t sf_watering_start_host_interface()
         .broker.address.port = CONFIG_SIM_FLOW_HOST_INTERFACE_PORT,
 
     };
+
+    sf_watering_hi_cmd_queue = xQueueCreate(SF_WATERING_HI_CMD_QUEUE_DEPTH, sizeof(sf_watering_hi_cmd_t*));
+    SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, sf_watering_hi_cmd_queue, FAIL, "Fail create cmd queue");
+
+    BaseType_t task_ret = xTaskCreate(sf_watering_hi_worker_task, "sf_hi_worker",
+                                      SF_WATERING_HI_WORKER_STACK, NULL,
+                                      SF_WATERING_HI_WORKER_PRIORITY, NULL);
+    SF_CHECK_EXPR_GOTO(ESP_LOGE, TAG, task_ret != pdPASS, FAIL, "Fail create worker task");
 
     sf_watering_mqtt_lient = esp_mqtt_client_init(&mqtt_cfg);
     SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, sf_watering_mqtt_lient, FAIL, "Fail init mqtt client");
