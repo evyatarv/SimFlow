@@ -172,7 +172,7 @@ static void sf_wattering_clean_schedule_resourses(sf_watering_scheduler_t* sched
 // Callback to turn on the GPIO (start watering)
 void sf_watering_gpio_on_cb(cron_job *job)
 {
-    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 1); // set GPIO level
+    sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, 1); // set GPIO level
     ESP_LOGI(TAG, "Watering start: %s", sf_time_get_current_time());
 }
 
@@ -180,7 +180,7 @@ void sf_watering_gpio_on_cb(cron_job *job)
 // Callback to turn off the GPIO (stop watering)
 void sf_watering_gpio_off_cb(cron_job *job)
 {
-    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 0); // set GPIO level
+    sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, 0); // set GPIO level
     ESP_LOGI(TAG, "Watering end: %s", sf_time_get_current_time());
 }
 
