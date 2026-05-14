@@ -68,6 +68,13 @@ menu "SIM FLOW Host Interface"
         help
             host port.
 
+    config SIM_FLOW_HOST_INTERFACE_MQTT_KEEPALIVE
+        int "KeepAlive"
+        default 600
+        help
+            Keepalive in sec.
+
+
 endmenu
 
 menu "SIM BUILD"

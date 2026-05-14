@@ -1,6 +1,7 @@
 #include "sf_device.h"
 #include "sf_gpio.h"
 #include "sf_time.h"
+#include "sf_pm.h"
 
 #include "sf_watering_scheduler.h"
 #include "sf_watering_hi.h"
@@ -76,11 +77,16 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
     if(sf_time_set_sntp_date())
         goto FAIL;
 
+    if(sf_pm_set_light_sleep_power_mode(true))
+        goto FAIL;
+
     if (sf_file_init_fs("/sf_fatfs"))
         goto FAIL;
     g_device_sts.device_fs_sts = 0x1; // device fs initialized
 
     sf_watering_load_from_file(SF_WATERING_SCHEDULE_FILE);
+
+   
 
     g_device_sts.device_init = 0x1; // device initialized
 

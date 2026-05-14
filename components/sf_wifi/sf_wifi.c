@@ -86,6 +86,7 @@ sf_err_t sf_wifi_init(void)
              */
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+            .listen_interval = 3,
         },
     };
     status = esp_wifi_set_mode(WIFI_MODE_STA);
@@ -96,6 +97,9 @@ sf_err_t sf_wifi_init(void)
 
     status = esp_wifi_start() ;
     SF_CHECK_ERR_GOTO(ESP_LOGI, TAG, status, FAIL, "Start wifi status: %d", status);
+
+    status = esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+    SF_CHECK_ERR_GOTO(ESP_LOGI, TAG, status, FAIL, "Set WiFi power save status: %d", status);
 
         /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
      * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */

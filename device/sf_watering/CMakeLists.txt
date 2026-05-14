@@ -1,4 +1,5 @@
-set(my_reqs "sf_files" "sf_cron_job" "sf_gpio" "sf_wifi" "sf_time" "nvs_flash" "log" "mqtt")
+
+set(my_reqs "sf_files" "sf_cron_job" "sf_gpio" "sf_wifi" "sf_time" "sf_pm" "nvs_flash" "log" "mqtt")
 
 # --- DEBUG & LOGIC START ---
 message(STATUS "-------------------------------------------------")
