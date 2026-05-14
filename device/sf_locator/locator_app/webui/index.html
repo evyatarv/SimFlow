@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>simpleBot Control</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 720px; margin: 20px auto; padding: 0 12px; }
+    h1 { font-size: 1.4rem; }
+    section { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    input, button, select { font-size: 1rem; padding: 8px; margin-top: 6px; width: 100%; }
+    button { cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mono { font-family: monospace; }
+    .palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+    .swatch { border: 1px solid #bbb; border-radius: 8px; height: 36px; padding: 0; }
+  </style>
+</head>
+<body>
+  <h1>simpleBot Local Control</h1>
+
+  <section>
+    <h3>Soft-AP Settings</h3>
+    <div>Current AP: <span class="mono" id="apSsid"></span></div>
+    <div>IP: <span class="mono" id="apIp"></span></div>
+    <input id="newSsid" placeholder="New AP SSID" />
+    <input id="newPass" placeholder="New AP Password (min 8)" />
+    <button onclick="saveAp()">Save AP Credentials</button>
+  </section>
+
+  <section>
+    <h3>MPU6050</h3>
+    <div>Baseline Az: <span class="mono" id="baseline"></span></div>
+    <div>MPU Temp: <span class="mono" id="mpuTemp"></span></div>
+    <button onclick="calibrate()">Calibrate Baseline Az</button>
+  </section>
+
+  <section>
+    <h3>LED</h3>
+    <select id="ledColor">
+      <option>red</option>
+      <option>green</option>
+      <option>blue</option>
+      <option>off</option>
+    </select>
+    <button onclick="setLed()">Set LED Color</button>
+    <div class="row">
+      <input id="ledR" type="number" min="0" max="255" value="255" placeholder="R (0-255)" />
+      <input id="ledG" type="number" min="0" max="255" value="0"   placeholder="G (0-255)" />
+    </div>
+    <input id="ledB" type="number" min="0" max="255" value="0" placeholder="B (0-255)" />
+    <button onclick="setLedRgb()">Set Raw RGB</button>
+    <div>Palette presets</div>
+    <div class="palette">
+      <button class="swatch" style="background:#ff0000" onclick="setPalette(255,0,0)"></button>
+      <button class="swatch" style="background:#00ff00" onclick="setPalette(0,255,0)"></button>
+      <button class="swatch" style="background:#0000ff" onclick="setPalette(0,0,255)"></button>
+      <button class="swatch" style="background:#ffff00" onclick="setPalette(255,255,0)"></button>
+      <button class="swatch" style="background:#ff00ff" onclick="setPalette(255,0,255)"></button>
+      <button class="swatch" style="background:#00ffff" onclick="setPalette(0,255,255)"></button>
+      <button class="swatch" style="background:#ffffff" onclick="setPalette(255,255,255)"></button>
+      <button class="swatch" style="background:#ff8000" onclick="setPalette(255,128,0)"></button>
+    </div>
+  </section>
+
+  <pre id="msg"></pre>
+
+  <script>
+    async function api(path, method = 'GET', body = null) {
+      const o = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) o.body = JSON.stringify(body);
+      const r = await fetch(path, o);
+      return await r.json();
+    }
+    function say(t) { document.getElementById('msg').textContent = t; }
+
+    async function refresh() {
+      const s = await api('/api/status');
+      document.getElementById('apSsid').textContent = s.ap.ssid;
+      document.getElementById('apIp').textContent = s.ap.ip;
+      document.getElementById('baseline').textContent = s.mpu.baselineAz.toFixed(2) + ' m/s^2';
+      const t = s.mpu.temperatureC;
+      document.getElementById('mpuTemp').textContent =
+        (t === null || Number.isNaN(t)) ? 'N/A' : t.toFixed(2) + ' C';
+      if (s.led && s.led.raw) {
+        document.getElementById('ledR').value = s.led.raw.r;
+        document.getElementById('ledG').value = s.led.raw.g;
+        document.getElementById('ledB').value = s.led.raw.b;
+      }
+    }
+
+    async function saveAp() {
+      const ssid = document.getElementById('newSsid').value.trim();
+      const password = document.getElementById('newPass').value.trim();
+      if (!ssid) return say('SSID is required');
+      const r = await api('/api/ap', 'POST', { ssid, password });
+      say(r.message);
+      setTimeout(refresh, 500);
+    }
+
+    async function calibrate() {
+      const r = await api('/api/calibrate', 'POST');
+      say(r.message);
+      setTimeout(refresh, 300);
+    }
+
+    async function setLed() {
+      const color = document.getElementById('ledColor').value;
+      const r = await api('/api/led', 'POST', { color });
+      say(r.message);
+    }
+
+    function part(v, n) {
+      const x = Number(v);
+      if (!Number.isInteger(x) || x < 0 || x > 255) throw new Error(n + ' must be 0-255');
+      return x;
+    }
+
+    async function setLedRgb() {
+      try {
+        const rv = part(document.getElementById('ledR').value, 'R');
+        const gv = part(document.getElementById('ledG').value, 'G');
+        const bv = part(document.getElementById('ledB').value, 'B');
+        const r = await api('/api/led', 'POST', { r: rv, g: gv, b: bv });
+        say(r.message);
+      } catch (e) { say(e.message); }
+    }
+
+    async function setPalette(r, g, b) {
+      document.getElementById('ledR').value = r;
+      document.getElementById('ledG').value = g;
+      document.getElementById('ledB').value = b;
+      await setLedRgb();
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

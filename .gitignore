@@ -12,6 +12,9 @@ sdkconfig_dev
 esp_idf_project_configuration.json
 sdkconfig_ci.old
 
+# locator credentials (template only — keep tokens out of git):
+device/sf_locator/locator_fw/config.h
+
 # watering App:S
 device/sf_watering/watering_app/webui/dist/
 device/sf_watering/watering_app/webui/node_modules/
