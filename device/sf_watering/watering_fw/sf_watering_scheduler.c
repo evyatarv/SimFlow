@@ -59,7 +59,7 @@ static sf_err_t sf_watering_file_delete(const char* file_path, uint32_t id)
     // Read all entries
     size = num_schedules * sizeof(*entries);
     status = sf_file_read(file_path, (uint8_t*)entries, &size, sizeof(uint32_t));
-    SF_CHECK_ERR_GOTO(ESP_LOGE, TAG, status, end, "Read entries from file end with status: %d", status);
+    SF_CHECK_ERR_GOTO(ESP_LOGI, TAG, status, end, "Read entries from file end with status: %d", status);
 
     // Find and remove by shifting
     uint32_t new_count = 0;
@@ -172,7 +172,9 @@ static void sf_wattering_clean_schedule_resourses(sf_watering_scheduler_t* sched
 // Callback to turn on the GPIO (start watering)
 void sf_watering_gpio_on_cb(cron_job *job)
 {
-    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 1); // set GPIO level
+    gpio_hold_dis(CONFIG_GPIO_OUTPUT_0);        // Unhold to allow changes
+    sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, 1); // set GPIO level
+    gpio_hold_en(CONFIG_GPIO_OUTPUT_0);         // Lock state safely for sleep
     ESP_LOGI(TAG, "Watering start: %s", sf_time_get_current_time());
 }
 
@@ -180,7 +182,9 @@ void sf_watering_gpio_on_cb(cron_job *job)
 // Callback to turn off the GPIO (stop watering)
 void sf_watering_gpio_off_cb(cron_job *job)
 {
-    sf_gpio_set_level(GPIO_OUTPUT_PIN_SEL, 0); // set GPIO level
+    gpio_hold_dis(CONFIG_GPIO_OUTPUT_0);        // Unhold to allow changes
+    sf_gpio_set_level(CONFIG_GPIO_OUTPUT_0, 0); // set GPIO level
+    gpio_hold_en(CONFIG_GPIO_OUTPUT_0);         // Lock state safely for sleep
     ESP_LOGI(TAG, "Watering end: %s", sf_time_get_current_time());
 }
 

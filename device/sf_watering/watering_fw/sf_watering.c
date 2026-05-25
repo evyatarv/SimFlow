@@ -1,6 +1,7 @@
 #include "sf_device.h"
 #include "sf_gpio.h"
 #include "sf_time.h"
+#include "sf_pm.h"
 
 #include "sf_watering_scheduler.h"
 #include "sf_watering_hi.h"
@@ -74,6 +75,9 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
     sf_time_set_timezone(NULL); 
 
     if(sf_time_set_sntp_date())
+        goto FAIL;
+
+    if(sf_pm_set_light_sleep_power_mode(true))
         goto FAIL;
 
     if (sf_file_init_fs("/sf_fatfs"))

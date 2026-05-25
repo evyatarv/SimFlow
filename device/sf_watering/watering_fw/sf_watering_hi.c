@@ -264,6 +264,7 @@ sf_err_t sf_watering_start_host_interface()
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = CONFIG_SIM_FLOW_HOST_INTERFACE_URI,
         .broker.address.port = CONFIG_SIM_FLOW_HOST_INTERFACE_PORT,
+        .session.keepalive = CONFIG_SIM_FLOW_HOST_INTERFACE_MQTT_KEEPALIVE, // Increase keep-alive to 10 minutes to reduce wakeups
 
     };
 
