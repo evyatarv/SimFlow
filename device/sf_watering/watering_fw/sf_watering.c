@@ -86,8 +86,6 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
 
     sf_watering_load_from_file(SF_WATERING_SCHEDULE_FILE);
 
-   
-
     g_device_sts.device_init = 0x1; // device initialized
 
     return SF_OK; 
