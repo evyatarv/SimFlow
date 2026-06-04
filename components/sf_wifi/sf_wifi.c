@@ -34,6 +34,9 @@ static int                   s_retry_num              = 0;
 
 /* ------------------------------------------------------------------ */
 
+/* TODO(#68): reconnect_timer_cb runs on the esp_timer task while ap_start/
+ * ap_stop run on the event-loop task — add a mutex around compound radio
+ * operations to prevent stale-mode races. Low-risk until production WDT. */
 static void reconnect_timer_cb(void *arg)
 {
     ESP_LOGI(TAG, "Reconnect attempt");
