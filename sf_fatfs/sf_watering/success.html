@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimFlow — Connected</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F2F2F0; font-family: sans-serif; color: #333;
+         display: flex; flex-direction: column; align-items: center;
+         justify-content: center; min-height: 100vh; padding: 24px; text-align: center; }
+  .circle { width: 80px; height: 80px; background: #2EC9C9; border-radius: 50%;
+             display: flex; align-items: center; justify-content: center;
+             margin-bottom: 20px; }
+  .circle svg { width: 44px; height: 44px; fill: none; stroke: #fff;
+                stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+  h1 { color: #1E7A82; font-size: 1.5rem; margin-bottom: 8px; }
+  p  { color: #666; font-size: .95rem; }
+  #counter { font-size: 2rem; font-weight: bold; color: #2EC9C9;
+              margin: 16px 0 4px; }
+</style>
+</head>
+<body>
+<div class="circle">
+  <svg viewBox="0 0 44 44">
+    <polyline points="8,22 18,34 36,12"/>
+  </svg>
+</div>
+<h1>Credentials saved!</h1>
+<p>The device is rebooting.</p>
+<div id="counter">3</div>
+<p>Reconnect to your WiFi network after reboot.</p>
+<script>
+var n = 3;
+var t = setInterval(function() {
+  n--;
+  document.getElementById('counter').textContent = n;
+  if (n <= 0) clearInterval(t);
+}, 1000);
+</script>
+</body>
+</html>
