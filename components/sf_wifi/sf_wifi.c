@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #include "sf_wifi.h"
 
@@ -32,15 +33,22 @@ static esp_netif_t          *s_ap_netif               = NULL;
 static esp_timer_handle_t    s_reconnect_timer        = NULL;
 static int                   s_retry_num              = 0;
 
+/* Serializes the compound radio operations (mode/config/start/connect) that
+ * are issued from different tasks: reconnect_timer_cb on the esp_timer task vs
+ * sf_wifi_ap_start/ap_stop on the event-loop task. Without it, ap_start's
+ * get_mode→set_mode read-modify-write can race a reconnect's esp_wifi_connect()
+ * and act on a stale mode. Never held across the blocking wait in
+ * sf_wifi_connect(). */
+static SemaphoreHandle_t     s_wifi_lock              = NULL;
+
 /* ------------------------------------------------------------------ */
 
-/* TODO(#68): reconnect_timer_cb runs on the esp_timer task while ap_start/
- * ap_stop run on the event-loop task — add a mutex around compound radio
- * operations to prevent stale-mode races. Low-risk until production WDT. */
 static void reconnect_timer_cb(void *arg)
 {
     ESP_LOGI(TAG, "Reconnect attempt");
+    xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
     esp_wifi_connect();
+    xSemaphoreGive(s_wifi_lock);
 }
 
 static void handle_sta_start(void)
@@ -69,11 +77,10 @@ static void handle_sta_disconnected(wifi_event_sta_disconnected_t *disc)
                      s_retry_num, SF_WIFI_MAXIMUM_RETRY, disc->reason);
         } else {
             ESP_LOGW(TAG, "Connect retries exhausted (reason %d)", disc->reason);
+            /* Only signal the waiter; sf_wifi_connect() arms the perpetual
+             * reconnect after it clears s_initial_connect_phase, so the initial
+             * session and the reconnect session never overlap. */
             xEventGroupSetBits(s_wifi_event_group, WIFI_NO_AP_BIT);
-            /* Hand off to perpetual self-heal — once s_initial_connect_phase is
-             * cleared the timer's esp_wifi_connect() lands in the perpetual branch. */
-            esp_timer_start_once(s_reconnect_timer,
-                                 (uint64_t)s_reconnect_delay_ms * 1000ULL);
         }
     } else {
         if (auth_fail) {
@@ -157,6 +164,10 @@ sf_err_t sf_wifi_driver_init(void)
     SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, s_wifi_event_group, FAIL,
                        "Failed to create WiFi event group");
 
+    s_wifi_lock = xSemaphoreCreateMutex();
+    SF_CHECK_NULL_GOTO(ESP_LOGE, TAG, s_wifi_lock, FAIL,
+                       "Failed to create WiFi lock");
+
     /* Both calls return ESP_ERR_INVALID_STATE if already initialised by
      * another component — treat that as success, not an error. */
     status = esp_netif_init();
@@ -228,6 +239,10 @@ sf_wifi_conn_status_t sf_wifi_connect(const char *ssid, const char *password)
     strlcpy((char *)wifi_config.sta.ssid,     ssid,     sizeof(wifi_config.sta.ssid));
     strlcpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
 
+    /* Hold the lock only across the radio mutations — never across the wait
+     * below, or ap_start/reconnect would be blocked for the whole boot. */
+    xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
+
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
 
@@ -238,10 +253,13 @@ sf_wifi_conn_status_t sf_wifi_connect(const char *ssid, const char *password)
     } else if (start_err != ESP_OK) {
         ESP_LOGE(TAG, "esp_wifi_start failed: %d", start_err);
         s_initial_connect_phase = false;
+        xSemaphoreGive(s_wifi_lock);
         return SF_WIFI_CONN_FAIL;
     }
 
     esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+
+    xSemaphoreGive(s_wifi_lock);
 
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
                                             WIFI_CONNECTED_BIT | WIFI_AUTH_FAIL_BIT | WIFI_NO_AP_BIT,
@@ -259,6 +277,11 @@ sf_wifi_conn_status_t sf_wifi_connect(const char *ssid, const char *password)
     }
 
     ESP_LOGW(TAG, "Failed to connect to SSID: %s", ssid);
+    /* Session is over (s_initial_connect_phase cleared above) — now hand off to
+     * perpetual self-heal. The timer's esp_wifi_connect() lands in the perpetual
+     * branch. */
+    esp_timer_start_once(s_reconnect_timer,
+                         (uint64_t)s_reconnect_delay_ms * 1000ULL);
     return SF_WIFI_CONN_NO_AP;
 }
 
@@ -281,6 +304,10 @@ sf_err_t sf_wifi_ap_start(const char *ssid)
     ap_config.ap.ssid_len = (uint8_t)strlen(ssid);
 
     esp_err_t status;
+    /* Serialize the get_mode→set_mode read-modify-write against a concurrent
+     * reconnect on the esp_timer task. */
+    xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
+
     /* Use APSTA if STA is already running, AP-only otherwise. */
     wifi_mode_t mode = WIFI_MODE_AP;
     esp_wifi_get_mode(&mode);
@@ -293,16 +320,20 @@ sf_err_t sf_wifi_ap_start(const char *ssid)
     /* Start WiFi; safe to call even if already started (returns error, no-op). */
     esp_wifi_start();
 
+    xSemaphoreGive(s_wifi_lock);
     ESP_LOGI(TAG, "SoftAP started: SSID=%s", ssid);
     return SF_OK;
 
 FAIL:
+    xSemaphoreGive(s_wifi_lock);
     return SF_FAIL;
 }
 
 sf_err_t sf_wifi_ap_stop(void)
 {
+    xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
     esp_err_t status = esp_wifi_set_mode(WIFI_MODE_STA);
+    xSemaphoreGive(s_wifi_lock);
     SF_CHECK_ERR_RETURN_FAIL(ESP_LOGE, TAG, status, "Set STA mode: %d", status);
     ESP_LOGI(TAG, "SoftAP stopped.");
     return SF_OK;
@@ -313,7 +344,9 @@ sf_err_t sf_wifi_stop(void)
     if (s_reconnect_timer) {
         esp_timer_stop(s_reconnect_timer);
     }
+    xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
     esp_err_t status = esp_wifi_stop();
+    xSemaphoreGive(s_wifi_lock);
     SF_CHECK_ERR_RETURN_FAIL(ESP_LOGI, TAG, status, "Stop wifi status: %d", status);
     ESP_LOGI(TAG, "WiFi stopped.");
     return SF_OK;
