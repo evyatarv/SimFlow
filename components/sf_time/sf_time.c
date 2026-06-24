@@ -72,6 +72,9 @@ sf_err_t sf_time_init(void)
 
 bool sf_time_is_valid(void)
 {
+    /* Guard here so callers before sf_time_init() (e.g. sf_wifi_prov_init) get
+     * a sanitized value rather than raw RTC-NOINIT garbage on cold boot. */
+    sf_time_rtc_guard();
     return s_rtc_time_valid;
 }
 
@@ -87,6 +90,7 @@ sf_err_t sf_time_set_manual(time_t epoch)
 
 sf_err_t sf_time_sntp_restart(void)
 {
+    sf_time_rtc_guard();
     if (s_rtc_time_valid) {
         return SF_OK;
     }

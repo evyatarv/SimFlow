@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -84,7 +85,9 @@ static void url_decode(char *dst, const char *src, size_t dst_size)
 {
     size_t di = 0;
     for (size_t si = 0; src[si] && di + 1 < dst_size; si++) {
-        if (src[si] == '%' && src[si + 1] && src[si + 2]) {
+        if (src[si] == '%' && src[si + 1] && src[si + 2] &&
+            isxdigit((unsigned char)src[si + 1]) &&
+            isxdigit((unsigned char)src[si + 2])) {
             char hex[3] = {src[si + 1], src[si + 2], '\0'};
             dst[di++] = (char)strtol(hex, NULL, 16);
             si += 2;
@@ -215,7 +218,7 @@ static esp_err_t get_logo_handler(httpd_req_t *req)
 {
     if (!s_config.logo_path) {
         httpd_resp_send_404(req);
-        return ESP_OK;
+        return ESP_FAIL;
     }
     return stream_file(req, s_config.logo_path, "image/png");
 }
@@ -249,7 +252,7 @@ static esp_err_t post_time_handler(httpd_req_t *req)
     char time_str[32] = {0};
     if (get_field(body, "time", time_str, sizeof(time_str))) {
         time_t epoch = parse_datetime(time_str);
-        if (epoch > 0) sf_time_set_manual(epoch);
+        if (epoch != (time_t)-1) sf_time_set_manual(epoch);
     }
     /* §6.5: Send response BEFORE posting event — httpd_stop() may be called
      * downstream and will wait for active handlers to finish. */
@@ -276,7 +279,7 @@ static esp_err_t post_connect_handler(httpd_req_t *req)
     char time_str[32] = {0};
     if (get_field(body, "time", time_str, sizeof(time_str))) {
         time_t epoch = parse_datetime(time_str);
-        if (epoch > 0) sf_time_set_manual(epoch);
+        if (epoch != (time_t)-1) sf_time_set_manual(epoch);
     }
     if (nvs_write_creds(ssid, password) != SF_OK) {
         ESP_LOGE(TAG, "NVS write failed — aborting reboot");
@@ -302,6 +305,9 @@ static esp_err_t start_httpd(void)
 
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.max_uri_handlers = 5;
+    /* post_*_handler stacks body[512] + get_field's encoded[512] simultaneously;
+     * bumping from the default 4096 gives enough headroom. */
+    cfg.stack_size = 6144;
     esp_err_t err = httpd_start(&s_httpd, &cfg);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "httpd_start failed: %d", err);

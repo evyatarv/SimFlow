@@ -12,9 +12,10 @@
 
 #include "sf_wifi.h"
 
-#define SF_WIFI_MAXIMUM_RETRY           5
-#define SF_WIFI_RECONNECT_DELAY_INIT_MS 1000
-#define SF_WIFI_RECONNECT_DELAY_MAX_MS  30000
+#define SF_WIFI_MAXIMUM_RETRY               5
+#define SF_WIFI_RECONNECT_DELAY_INIT_MS     1000
+#define SF_WIFI_RECONNECT_DELAY_MAX_MS      30000
+#define SF_WIFI_PERPETUAL_AUTH_FAIL_MAX     3
 
 #define WIFI_CONNECTED_BIT  BIT0
 #define WIFI_AUTH_FAIL_BIT  BIT1
@@ -32,6 +33,7 @@ static EventGroupHandle_t    s_wifi_event_group       = NULL;
 static esp_netif_t          *s_ap_netif               = NULL;
 static esp_timer_handle_t    s_reconnect_timer        = NULL;
 static int                   s_retry_num              = 0;
+static int                   s_auth_fail_count        = 0;
 
 /* Serializes the compound radio operations (mode/config/start/connect) that
  * are issued from different tasks: reconnect_timer_cb on the esp_timer task vs
@@ -84,10 +86,26 @@ static void handle_sta_disconnected(wifi_event_sta_disconnected_t *disc)
         }
     } else {
         if (auth_fail) {
-            ESP_LOGW(TAG, "Auth fail on reconnect (reason %d)", disc->reason);
-            if (esp_event_post(SF_WIFI_EVENT, SF_WIFI_EVENT_AUTH_FAIL,
-                               NULL, 0, pdMS_TO_TICKS(100)) != ESP_OK) {
-                ESP_LOGW(TAG, "post AUTH_FAIL failed");
+            s_auth_fail_count++;
+            if (s_auth_fail_count >= SF_WIFI_PERPETUAL_AUTH_FAIL_MAX) {
+                /* Repeated auth failures — credentials are likely wrong. */
+                s_auth_fail_count = 0;
+                ESP_LOGW(TAG, "Auth fail after %d attempts (reason %d), signalling",
+                         SF_WIFI_PERPETUAL_AUTH_FAIL_MAX, disc->reason);
+                if (esp_event_post(SF_WIFI_EVENT, SF_WIFI_EVENT_AUTH_FAIL,
+                                   NULL, 0, pdMS_TO_TICKS(100)) != ESP_OK) {
+                    ESP_LOGW(TAG, "post AUTH_FAIL failed");
+                }
+            } else {
+                /* Transient auth glitch — back off and retry. */
+                ESP_LOGW(TAG, "Auth fail on reconnect (reason %d), retry %d/%d",
+                         disc->reason, s_auth_fail_count, SF_WIFI_PERPETUAL_AUTH_FAIL_MAX);
+                if (esp_timer_start_once(s_reconnect_timer,
+                                         (uint64_t)s_reconnect_delay_ms * 1000ULL) == ESP_OK) {
+                    s_reconnect_delay_ms = (s_reconnect_delay_ms < SF_WIFI_RECONNECT_DELAY_MAX_MS)
+                                         ? s_reconnect_delay_ms * 2
+                                         : SF_WIFI_RECONNECT_DELAY_MAX_MS;
+                }
             }
         } else {
             ESP_LOGI(TAG, "Disconnected, reconnect in %"PRIu32" ms (reason %d)",
@@ -110,6 +128,7 @@ static void handle_sta_got_ip(ip_event_got_ip_t *event)
 {
     ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
     s_reconnect_delay_ms = SF_WIFI_RECONNECT_DELAY_INIT_MS;
+    s_auth_fail_count    = 0;
     xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     if (!s_initial_connect_phase) {
         if (esp_event_post(SF_WIFI_EVENT, SF_WIFI_EVENT_CONNECTED,
@@ -248,7 +267,9 @@ sf_wifi_conn_status_t sf_wifi_connect(const char *ssid, const char *password)
 
     esp_err_t start_err = esp_wifi_start();
     if (start_err == ESP_ERR_WIFI_CONN) {
-        /* Already started — WIFI_EVENT_STA_START won't fire, connect directly. */
+        /* Already started — WIFI_EVENT_STA_START won't fire, connect directly.
+         * TODO: verify ESP_ERR_WIFI_CONN is the correct "already started" code
+         * on IDF 5.4.2; this path is untested in the current design. */
         esp_wifi_connect();
     } else if (start_err != ESP_OK) {
         ESP_LOGE(TAG, "esp_wifi_start failed: %d", start_err);
@@ -332,9 +353,13 @@ FAIL:
 sf_err_t sf_wifi_ap_stop(void)
 {
     xSemaphoreTake(s_wifi_lock, portMAX_DELAY);
-    esp_err_t status = esp_wifi_set_mode(WIFI_MODE_STA);
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    esp_wifi_get_mode(&mode);
+    /* APSTA → STA; AP-only (no-creds path, STA never started) → NULL. */
+    wifi_mode_t target = (mode == WIFI_MODE_APSTA) ? WIFI_MODE_STA : WIFI_MODE_NULL;
+    esp_err_t status = esp_wifi_set_mode(target);
     xSemaphoreGive(s_wifi_lock);
-    SF_CHECK_ERR_RETURN_FAIL(ESP_LOGE, TAG, status, "Set STA mode: %d", status);
+    SF_CHECK_ERR_RETURN_FAIL(ESP_LOGE, TAG, status, "Set mode after AP stop: %d", status);
     ESP_LOGI(TAG, "SoftAP stopped.");
     return SF_OK;
 }

@@ -857,8 +857,8 @@ REQUIRES esp_wifi esp_netif esp_event log
 # sf_wifi_prov  (uses VFS/newlib fopen on mounted FatFS — no fatfs REQUIRE)
 REQUIRES esp_wifi esp_netif esp_event esp_http_server nvs_flash esp_timer log sf_wifi sf_time
 
-# sf_time  (now posts SF_TIME_EVENT on the default loop — add esp_event)
-REQUIRES esp_event log
+# sf_time  (esp_netif needed by esp_netif_sntp; esp_event for SF_TIME_EVENT)
+REQUIRES esp_netif esp_event log
 ```
 
 UI files ship in the FatFS image (no `EMBED_*`):
