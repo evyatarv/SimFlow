@@ -25,7 +25,6 @@ ESP_EVENT_DEFINE_BASE(SF_WIFI_EVENT);
 
 static const char *TAG = "SF_WIFI";
 
-static bool                  s_driver_initialized     = false; /* TODO(commit5): remove once sf_wifi_init() is gone */
 static volatile bool         s_initial_connect_phase  = false;
 static uint32_t              s_reconnect_delay_ms     = SF_WIFI_RECONNECT_DELAY_INIT_MS;
 
@@ -173,10 +172,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 sf_err_t sf_wifi_driver_init(void)
 {
-    if (s_driver_initialized) {
-        return SF_OK;
-    }
-
     esp_err_t status;
 
     s_wifi_event_group = xEventGroupCreate();
@@ -228,7 +223,6 @@ sf_err_t sf_wifi_driver_init(void)
     SF_CHECK_ERR_GOTO(ESP_LOGE, TAG, status, FAIL,
                       "Create reconnect timer: %d", status);
 
-    s_driver_initialized = true;
     ESP_LOGI(TAG, "Driver initialized.");
 
     return SF_OK;
@@ -375,17 +369,4 @@ sf_err_t sf_wifi_stop(void)
     SF_CHECK_ERR_RETURN_FAIL(ESP_LOGI, TAG, status, "Stop wifi status: %d", status);
     ESP_LOGI(TAG, "WiFi stopped.");
     return SF_OK;
-}
-
-/* Deprecated wrapper — removed in commit 5 when sf_watering switches to
- * sf_wifi_prov_init(). Kconfig entries removed at the same time. */
-sf_err_t sf_wifi_init(void)
-{
-    sf_err_t status = sf_wifi_driver_init();
-    if (status != SF_OK) {
-        return SF_FAIL;
-    }
-    sf_wifi_conn_status_t result = sf_wifi_connect(CONFIG_SIM_FLOW_WIFI_SSID,
-                                                   CONFIG_SIM_FLOW_WIFI_PASSWORD);
-    return (result == SF_WIFI_CONN_OK) ? SF_OK : SF_FAIL;
 }

@@ -121,13 +121,3 @@ char *sf_time_get_current_time(void)
     time(&now);
     return ctime(&now);
 }
-
-/* Deprecated — removed in commit 5 when sf_watering switches to
- * sf_time_init() + sf_time_sntp_restart(). */
-sf_err_t sf_time_set_sntp_date(void)
-{
-    if (sf_time_init() != SF_OK) {
-        return SF_FAIL;
-    }
-    return sf_time_sntp_restart();
-}

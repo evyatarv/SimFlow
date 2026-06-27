@@ -41,7 +41,3 @@ sf_err_t sf_wifi_ap_stop(void);
  * After this call, sf_wifi_connect() or sf_wifi_ap_start() may be called
  * again to restart. */
 sf_err_t sf_wifi_stop(void);
-
-/* Deprecated — use sf_wifi_prov_init() instead. Kept for build compatibility
- * until sf_watering is updated in commit 5. */
-sf_err_t sf_wifi_init(void);

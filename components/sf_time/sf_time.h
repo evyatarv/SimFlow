@@ -33,10 +33,6 @@ sf_err_t sf_time_sntp_restart(void);
 /* Print current time to log. */
 void sf_time_print_current_time(void);
 
-/* Deprecated — removed when sf_watering switches to sf_time_init() +
- * sf_time_sntp_restart(). Kept for build compatibility until commit 5. */
-sf_err_t sf_time_set_sntp_date(void);
-
 /* Return current time as ctime() string. Caller must not free, modify, or
  * store the pointer — ctime() returns a shared static buffer overwritten on
  * the next call from any context. */

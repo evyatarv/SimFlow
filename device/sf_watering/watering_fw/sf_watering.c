@@ -22,12 +22,38 @@
 #ifdef CONFIG_SIM_FLOW_EMULATION_BUILD
 #include "sf_eth.h"
 #else
-#include "sf_wifi.h"   
+#include "sf_wifi_prov.h"
+#define WEBUI_DIR "/sf_fatfs/sf_watering"
 #endif
 
 
 
 static const char* TAG = "SF_WATTERING";
+
+/* A running provisioning SoftAP cannot light-sleep, so this gates the power
+ * mode (DESIGN §13). Updated by on_prov_state; defaults false (emulation
+ * build and the connected boot path never enter provisioning). */
+static bool s_provisioning = false;
+
+#ifndef CONFIG_SIM_FLOW_EMULATION_BUILD
+/* Fired by sf_wifi_prov on SoftAP up/down. Keeps light-sleep disabled while
+ * the SoftAP is up. LED indication is wired in a later commit. */
+static void on_prov_state(sf_wifi_prov_state_t state, void *ctx)
+{
+    s_provisioning = (state == SF_WIFI_PROV_PROVISIONING);
+    sf_pm_set_light_sleep_power_mode(!s_provisioning);
+}
+
+/* Strings must outlive the component — all static storage (DESIGN §5.3). */
+static const sf_wifi_prov_config_t prov_cfg = {
+    .ap_ssid           = "SIMFLOW-Watering",
+    .prov_html_path    = WEBUI_DIR "/prov.html",
+    .success_html_path = WEBUI_DIR "/success.html",
+    .logo_path         = WEBUI_DIR "/logo.png",
+    .on_state_change   = on_prov_state,
+    .state_ctx         = NULL,
+};
+#endif
 
 typedef struct sf_device_sts
 {
@@ -46,20 +72,17 @@ sf_device_sts_t g_device_sts = {0};
 
 static sf_err_t init_network(void)
 {
-    sf_err_t status = SF_FAIL; 
-
 #ifdef CONFIG_SIM_FLOW_EMULATION_BUILD
-    status = sf_eth_init();
+    return sf_eth_init();
 #else
-    status = sf_wifi_init();
+    return sf_wifi_prov_init(&prov_cfg);
 #endif
-    return status;
 }
 
 sf_err_t init_device(sf_device_cfg_t dev_cfg)
 {
     if (sf_gpio_init())
-    goto FAIL;
+        goto FAIL;
 
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -68,30 +91,47 @@ sf_err_t init_device(sf_device_cfg_t dev_cfg)
       ret = nvs_flash_init();
     }
 
-    if (init_network())
-        goto FAIL;  
-    g_device_sts.device_wifi_sts = 0x1; // device wifi initialized
-
-    sf_time_set_timezone(NULL); 
-
-    if(sf_time_set_sntp_date())
-        goto FAIL;
-
-    if(sf_pm_set_light_sleep_power_mode(true))
-        goto FAIL;
-
+    /* FS + schedules first: the watering core must run offline, and the
+     * provisioning UI files must be mounted before the SoftAP can come up. */
     if (sf_file_init_fs("/sf_fatfs"))
         goto FAIL;
     g_device_sts.device_fs_sts = 0x1; // device fs initialized
 
     sf_watering_load_from_file(SF_WATERING_SCHEDULE_FILE);
 
+    /* TZ before network: a POST /time during provisioning converts the naive
+     * datetime via mktime() in the device timezone (DESIGN §9.2). */
+    sf_time_set_timezone(NULL);
+
+    /* Network: blocks through the bounded initial connect, then returns. May
+     * bring up the provisioning SoftAP, which fires on_prov_state(). */
+    if (init_network())
+        goto FAIL;
+    g_device_sts.device_wifi_sts = 0x1; // device network initialized
+
+    /* Time: must follow init_network (needs esp_netif_init). SNTP failure is
+     * NOT fatal — the scheduler gates on sf_time_is_valid(), and time can also
+     * be set manually via the provisioning page. */
+    if (sf_time_init())
+        ESP_LOGW(TAG, "sf_time_init failed — continuing without SNTP");
+    sf_time_sntp_restart();
+
+    /* Initial power mode: light-sleep enabled unless the SoftAP came up during
+     * init_network(); on_prov_state() keeps it in sync thereafter. */
+    if (sf_pm_set_light_sleep_power_mode(!s_provisioning))
+        goto FAIL;
+
+    /* WDT note (DESIGN §12): app_main is not subscribed to the Task WDT and is
+     * deleted after device_start() returns, so the ~25-30 s blocking connect in
+     * init_network() cannot trip it. If a long-lived task is ever subscribed,
+     * call esp_task_wdt_add() HERE — after the blocking connect, never before. */
+
     g_device_sts.device_init = 0x1; // device initialized
 
-    return SF_OK; 
+    return SF_OK;
 
 FAIL:
-    return SF_FAIL; 
+    return SF_FAIL;
 }
 
 
