@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -9,6 +10,8 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "lwip/sockets.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -30,6 +33,17 @@
 
 #define TIMEOUT_TIMED_US    (5ULL * 60 * 1000000)   /* 5 min */
 #define REBOOT_DELAY_US     (3ULL * 1000000)         /* 3 s   */
+
+/* Captive portal: a DNS responder answers every query with the AP IP so the
+ * phone's connectivity check resolves to us, and the HTTP 404 handler redirects
+ * it to the prov page — triggering the OS captive-portal popup (DESIGN O-9). */
+#define DNS_PORT            53
+#define DNS_RX_MAX          256
+#define DNS_ANSWER_LEN      16   /* ptr(2)+type(2)+class(2)+ttl(4)+rdlen(2)+ip(4) */
+#define AP_IP_0             192
+#define AP_IP_1             168
+#define AP_IP_2             4
+#define AP_IP_3             1
 
 static const char *TAG = "SF_WIFI_PROV";
 
@@ -67,6 +81,9 @@ static httpd_handle_t        s_httpd      = NULL;
 static esp_timer_handle_t    s_reboot_timer  = NULL;
 static esp_timer_handle_t    s_timeout_timer = NULL;
 
+static volatile bool         s_dns_running = false;
+static TaskHandle_t          s_dns_task    = NULL;
+
 /* ------------------------------------------------------------------ */
 /* Forward declarations                                                 */
 /* ------------------------------------------------------------------ */
@@ -76,6 +93,8 @@ static void ap_open_timed(void);
 static void ap_close(void);
 static esp_err_t start_httpd(void);
 static void stop_httpd(void);
+static void start_dns(void);
+static void stop_dns(void);
 
 /* ------------------------------------------------------------------ */
 /* Helpers — URL decode / field extraction / time parsing               */
@@ -296,8 +315,115 @@ static esp_err_t post_connect_handler(httpd_req_t *req)
 }
 
 /* ------------------------------------------------------------------ */
+/* Captive portal — DNS responder                                       */
+/* ------------------------------------------------------------------ */
+
+/* Answers every A query with the AP IP. One answer per packet (probes are
+ * single-question), using a name pointer (0xC00C) back to the question. */
+static void dns_respond(int sock, const uint8_t *rx, int len,
+                         const struct sockaddr_in *src, socklen_t slen)
+{
+    if (len < 12) return;                       /* shorter than a DNS header */
+    if (len > DNS_RX_MAX) return;               /* tx can't hold len+answer  */
+    if (rx[2] & 0x80) return;                   /* QR set → not a query      */
+    if (rx[4] == 0 && rx[5] == 0) return;       /* qd_count == 0             */
+
+    uint8_t tx[DNS_RX_MAX + DNS_ANSWER_LEN];
+    memcpy(tx, rx, len);
+    tx[2] = 0x81; tx[3] = 0x80;                 /* response, recursion avail */
+    tx[6] = 0x00; tx[7] = 0x01;                 /* an_count = 1              */
+    tx[8] = 0x00; tx[9] = 0x00;                 /* ns_count = 0              */
+    tx[10] = 0x00; tx[11] = 0x00;               /* ar_count = 0              */
+
+    uint8_t *p = tx + len;                       /* append answer after question */
+    *p++ = 0xC0; *p++ = 0x0C;                    /* name → pointer to question   */
+    *p++ = 0x00; *p++ = 0x01;                    /* type A                       */
+    *p++ = 0x00; *p++ = 0x01;                    /* class IN                     */
+    *p++ = 0x00; *p++ = 0x00; *p++ = 0x00; *p++ = 0x3C; /* TTL 60 s             */
+    *p++ = 0x00; *p++ = 0x04;                    /* rdlength 4                   */
+    *p++ = AP_IP_0; *p++ = AP_IP_1; *p++ = AP_IP_2; *p++ = AP_IP_3;
+
+    sendto(sock, tx, len + DNS_ANSWER_LEN, 0, (const struct sockaddr *)src, slen);
+}
+
+static void dns_task(void *arg)
+{
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "DNS socket failed: %d", errno);
+        s_dns_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    int reuse = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    /* Recv timeout so the loop periodically re-checks s_dns_running for a clean
+     * stop without needing to close the socket from another task. */
+    struct timeval tv = { .tv_sec = 1, .tv_usec = 0 };
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_port        = htons(DNS_PORT),
+        .sin_addr.s_addr = htonl(INADDR_ANY),
+    };
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        ESP_LOGE(TAG, "DNS bind failed: %d", errno);
+        close(sock);
+        s_dns_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    ESP_LOGI(TAG, "DNS responder started");
+    uint8_t rx[DNS_RX_MAX];
+    while (s_dns_running) {
+        struct sockaddr_in src;
+        socklen_t slen = sizeof(src);
+        int len = recvfrom(sock, rx, sizeof(rx), 0, (struct sockaddr *)&src, &slen);
+        if (len > 0) {
+            dns_respond(sock, rx, len, &src, slen);
+        }
+        /* len <= 0 → timeout/error: just re-check the running flag. */
+    }
+
+    close(sock);
+    ESP_LOGI(TAG, "DNS responder stopped");
+    s_dns_task = NULL;
+    vTaskDelete(NULL);
+}
+
+static void start_dns(void)
+{
+    if (s_dns_task) return;
+    s_dns_running = true;
+    if (xTaskCreate(dns_task, "prov_dns", 3072, NULL, 5, &s_dns_task) != pdPASS) {
+        s_dns_running = false;
+        s_dns_task    = NULL;
+        ESP_LOGE(TAG, "DNS task create failed");
+    }
+}
+
+static void stop_dns(void)
+{
+    /* Task exits within the 1 s recv timeout, closes its socket, self-deletes. */
+    s_dns_running = false;
+}
+
+/* ------------------------------------------------------------------ */
 /* HTTP server lifecycle                                                */
 /* ------------------------------------------------------------------ */
+
+/* Captive-portal trigger: redirect any unknown URL (the OS connectivity-check
+ * probes) to the prov page so the device is detected as a captive portal. */
+static esp_err_t http_404_redirect(httpd_req_t *req, httpd_err_code_t err)
+{
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;   /* keep the connection alive (ESP_FAIL would close it) */
+}
 
 static esp_err_t start_httpd(void)
 {
@@ -323,6 +449,11 @@ static esp_err_t start_httpd(void)
     for (int i = 0; i < (int)(sizeof(uris) / sizeof(uris[0])); i++) {
         httpd_register_uri_handler(s_httpd, &uris[i]);
     }
+    /* Captive-portal: unknown URLs (OS probes) → redirect to the prov page. */
+    httpd_register_err_handler(s_httpd, HTTPD_404_NOT_FOUND, http_404_redirect);
+
+    start_dns();  /* resolve every hostname to the AP so probes reach us */
+
     ESP_LOGI(TAG, "HTTP server started");
     return ESP_OK;
 }
@@ -330,6 +461,7 @@ static esp_err_t start_httpd(void)
 static void stop_httpd(void)
 {
     if (!s_httpd) return;
+    stop_dns();
     httpd_stop(s_httpd);
     s_httpd = NULL;
     ESP_LOGI(TAG, "HTTP server stopped");
