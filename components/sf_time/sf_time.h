@@ -1,61 +1,43 @@
+#pragma once
 
-
+#include <time.h>
+#include "esp_event.h"
 #include "sf_err.h"
 
+/* Posted to the default event loop on the first invalid→valid transition.
+ * Subscribe after sf_wifi_prov_init() (which creates the loop) returns. */
+ESP_EVENT_DECLARE_BASE(SF_TIME_EVENT);
 
+typedef enum {
+    SF_TIME_EVENT_VALID = 0,  /* time became valid (SNTP success or manual set) */
+} sf_time_event_id_t;
 
+/* One-time init: RTC guard + SNTP setup. Call before any other sf_time API.
+ * Does not start SNTP — call sf_time_sntp_restart() to trigger the first sync. */
+sf_err_t sf_time_init(void);
 
-/**
- * @brief Set the system date and time using SNTP.
- *
- * This function synchronizes the device's system time with an SNTP server.
- *
- * @return sf_err_t SF_OK on success, SF_FAIL on failure.
- */
-sf_err_t sf_time_set_sntp_date();
+/* Set timezone. Pass NULL to use the Kconfig default. */
+sf_err_t sf_time_set_timezone(const char *timezone);
 
+/* Returns true if time has been validated this power cycle (SNTP or manual).
+ * Persists across esp_restart/sleep; cleared only on power loss (RTC domain). */
+bool sf_time_is_valid(void);
 
+/* Set time manually (e.g. from provisioning page). Marks valid, posts SF_TIME_EVENT_VALID. */
+sf_err_t sf_time_set_manual(time_t epoch);
 
-/**
- * @brief Print the current system date and time.
- *
- * This function outputs the current system time to the console or log.
- */
-void sf_time_print_current_time();
+/* Re-trigger SNTP sync. No-op if already valid or offline (SNTP will retry internally).
+ * Safe to call multiple times — starts SNTP on first call, forces resync on subsequent. */
+sf_err_t sf_time_sntp_restart(void);
 
+/* Print current time to log. */
+void sf_time_print_current_time(void);
 
-/**
- * @brief Initialize the SimFlow time module.
- *
- * This function prepares the time module for use, including setting up SNTP.
- *
- * @return sf_err_t SF_OK on success, SF_FAIL on failure.
- */
-sf_err_t sf_time_init();
+/* Deprecated — removed when sf_watering switches to sf_time_init() +
+ * sf_time_sntp_restart(). Kept for build compatibility until commit 5. */
+sf_err_t sf_time_set_sntp_date(void);
 
-
-
-/**
- * @brief Set the system timezone.
- *
- * This function sets the system timezone for time calculations and formatting.
- *
- * @param timezone   A string representing the timezone (e.g., "UTC", "Europe/Berlin").
- * @return sf_err_t  SF_OK on success, SF_FAIL on failure.
- */
-sf_err_t sf_time_set_timezone(const char* timezone);
-
-
-
-/**
- * @brief Get the current system time as a formatted string.
- *
- * This function retrieves the current system time and returns it as a formatted
- * string representation. The returned string contains the date and time
- * according to the system's current timezone settings.
- *
- * @return char* A pointer to a string containing the formatted date and time.
- *         Returns NULL if the system time is not yet set or on error.
- *         Note: The caller should not modify or free the returned string.
- */
-char*  sf_time_get_current_time();
+/* Return current time as ctime() string. Caller must not free, modify, or
+ * store the pointer — ctime() returns a shared static buffer overwritten on
+ * the next call from any context. */
+char *sf_time_get_current_time(void);
