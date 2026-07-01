@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimFlow Setup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F2F2F0; font-family: sans-serif; color: #333;
+         display: flex; flex-direction: column; align-items: center;
+         padding: 24px 16px; min-height: 100vh; }
+  img.logo { width: 120px; margin-bottom: 12px; }
+  h1 { color: #1E7A82; font-size: 1.4rem; margin-bottom: 4px; }
+  #clock { font-size: 0.9rem; color: #666; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px;
+          width: 100%; max-width: 360px; margin-bottom: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .card h2 { font-size: 1rem; color: #2EC9C9; margin-bottom: 14px;
+              border-bottom: 1px solid #e8e8e8; padding-bottom: 8px; }
+  label { display: block; font-size: .85rem; color: #555;
+          margin-bottom: 4px; margin-top: 10px; }
+  input { width: 100%; padding: 9px 11px; border: 1px solid #ccc;
+          border-radius: 6px; font-size: .95rem; }
+  input:focus { outline: none; border-color: #2EC9C9; }
+  button { margin-top: 14px; width: 100%; padding: 10px;
+           background: #2EC9C9; color: #fff; border: none;
+           border-radius: 6px; font-size: 1rem; cursor: pointer; }
+  button:active { background: #1E7A82; }
+  #time-status { font-size: .8rem; margin-top: 8px;
+                 min-height: 1.2em; color: #888; }
+</style>
+</head>
+<body>
+<img class="logo" src="/logo.png" alt="SimFlow" onerror="this.style.display='none'">
+<h1>SimFlow Setup</h1>
+<div id="clock">--:--:--</div>
+
+<div class="card">
+  <h2>WiFi</h2>
+  <!-- Full-page POST: browser navigates to /connect and renders success.html.
+       The 3 s countdown in success.html matches the device reboot timer (§9.3). -->
+  <form method="POST" action="/connect">
+    <label for="ssid">Network name</label>
+    <input id="ssid" name="ssid" type="text" autocomplete="off" required>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="off"
+           minlength="8" required>
+    <button type="submit">Connect &amp; Reboot</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Set Time</h2>
+  <form id="time-form">
+    <label for="datetime">Date &amp; time</label>
+    <input id="datetime" name="time" type="datetime-local" required>
+    <button type="submit">Set Time</button>
+  </form>
+  <div id="time-status"></div>
+</div>
+
+<script>
+/* Live clock: sync from device every 30 s, tick locally every 1 s in between
+ * to avoid a request per second over the AP. */
+var clockBase = null;  /* Date object from last successful /api/time sync */
+
+function renderClock() {
+  var el = document.getElementById('clock');
+  if (!clockBase) { el.textContent = 'Time not set'; return; }
+  el.textContent = clockBase.toLocaleString();
+  clockBase = new Date(clockBase.getTime() + 1000);
+}
+function syncTime() {
+  fetch('/api/time').then(r => r.json())
+    .then(d => { clockBase = d.time ? new Date(d.time) : null; })
+    .catch(() => { clockBase = null; });
+}
+syncTime();
+setInterval(renderClock, 1000);
+setInterval(syncTime, 30000);
+
+/* Time form */
+document.getElementById('time-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var st = document.getElementById('time-status');
+  st.textContent = 'Setting…';
+  var data = new URLSearchParams(new FormData(this));
+  fetch('/time', { method: 'POST', body: data })
+    .then(r => r.text()).then(() => { st.textContent = 'Time set.'; syncTime(); })
+    .catch(() => { st.textContent = 'Error — please retry.'; });
+});
+</script>
+</body>
+</html>
